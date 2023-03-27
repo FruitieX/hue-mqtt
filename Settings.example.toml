@@ -1,0 +1,19 @@
+[mqtt]
+
+# ID used when connecting MQTT client, needs to be unique across MQTT clients connected to the broker
+id = "hue-mqtt"
+
+# Domain name / IP address and port of the MQTT broker
+host = "test.mosquitto.org"
+port = 1883
+
+[hue_bridge]
+
+# Domain name / IP address of the Hue bridge
+addr = "192.168.2.40"
+
+# App key or "username" for authenticating to the Hue bridge
+appkey = "0123456789abcdef0123456789abcdef0123456-"
+
+# Disable checks for hostname in Hue bridge certificate. You need to disable this unless the Hue bridge's hostname resolves to its IP address.
+disable_host_name_verification = true

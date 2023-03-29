@@ -24,19 +24,6 @@ use super::{
 };
 
 #[derive(Deserialize, Debug, Clone)]
-struct TemperatureData {
-    temperature: f32,
-    temperature_valid: bool,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-struct TemperatureUpdateData {
-    id: String,
-    id_v1: String,
-    temperature: TemperatureData,
-}
-
-#[derive(Deserialize, Debug, Clone)]
 struct ButtonData {
     last_event: String,
 }
@@ -76,23 +63,21 @@ struct DevicePowerData {}
 #[derive(Deserialize, Debug, Clone)]
 #[serde(tag = "type", rename_all = "snake_case")]
 enum UpdateData {
-    Temperature(TemperatureUpdateData),
     Button(ButtonUpdateData),
     Light(LightUpdateData),
     Motion(MotionUpdateData),
 
     // Ignored updates
-    LightLevel,         // light sensor update
-    DevicePower,        // battery level update
-    GroupedLight,       // we don't care about groups
-    ZigbeeConnectivity, // connectivity issue
+    Temperature,        // Temperature sensor update
+    LightLevel,         // Light sensor update
+    DevicePower,        // Battery level update
+    GroupedLight,       // Light groups update
+    ZigbeeConnectivity, // Connectivity issue update
 }
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct UpdateEvent {
-    creationtime: String,
     data: Vec<UpdateData>,
-    id: String,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -193,6 +178,13 @@ pub fn try_parse_hue_events(
                                     hsv.value = 1.0;
 
                                     mqtt_device.color = Some(hsv);
+                                }
+
+                                if let Some(ColorTemperatureData { mirek: Some(mirek) }) =
+                                    light.color_temperature
+                                {
+                                    let cct = 1_000_000.0 / mirek;
+                                    mqtt_device.cct = Some(cct);
                                 }
 
                                 if let Some(on) = light.on {

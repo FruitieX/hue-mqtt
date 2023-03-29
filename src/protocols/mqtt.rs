@@ -9,7 +9,8 @@ use tokio::{
 
 use crate::{
     hue::rest::light::{put_hue_light, PutResponse},
-    settings::Settings, mqtt_device::MqttDevice,
+    mqtt_device::MqttDevice,
+    settings::Settings,
 };
 
 use super::https::HyperHttpsClient;
@@ -40,24 +41,28 @@ pub async fn mk_mqtt_client(settings: &Settings) -> Result<MqttClient> {
         .await?;
 
     task::spawn(async move {
-        while let Ok(notification) = eventloop.poll().await {
-            let mqtt_tx = tx.clone();
+        loop {
+            while let Ok(notification) = eventloop.poll().await {
+                let mqtt_tx = tx.clone();
 
-            let res = (|| async move {
-                if let rumqttc::Event::Incoming(rumqttc::Packet::Publish(msg)) = notification {
-                    let device: MqttDevice = serde_json::from_slice(&msg.payload)?;
+                let res = (|| async move {
+                    if let rumqttc::Event::Incoming(rumqttc::Packet::Publish(msg)) = notification {
+                        let device: MqttDevice = serde_json::from_slice(&msg.payload)?;
 
-                    let tx = mqtt_tx.write().await;
-                    tx.send(Some(device))?;
+                        let tx = mqtt_tx.write().await;
+                        tx.send(Some(device))?;
+                    }
+
+                    Ok::<(), Box<dyn std::error::Error>>(())
+                })()
+                .await;
+
+                if let Err(e) = res {
+                    eprintln!("MQTT error: {:?}", e);
                 }
-
-                Ok::<(), Box<dyn std::error::Error>>(())
-            })()
-            .await;
-
-            if let Err(e) = res {
-                eprintln!("MQTT error: {:?}", e);
             }
+
+            tokio::time::sleep(Duration::from_millis(100)).await;
         }
     });
 
@@ -115,7 +120,10 @@ async fn process_next_mqtt_message(
 ) -> Result<PutResponse> {
     let mqtt_device = {
         let mut mqtt_rx = mqtt_rx.write().await;
-        mqtt_rx.changed().await?;
+        mqtt_rx
+            .changed()
+            .await
+            .expect("Expected mqtt_rx channel to never close");
         let value = &*mqtt_rx.borrow();
         value
             .clone()

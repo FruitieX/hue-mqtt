@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::rest::HueState;
+use super::rest::{light::ColorTemperatureData, HueState};
 use crate::{
     mqtt_device::{MqttDevice, MqttDeviceBuilder},
     protocols::mqtt::MqttClient,
@@ -31,6 +31,11 @@ pub fn init_state_to_mqtt_devices(init_state: &HueState) -> HashMap<String, Mqtt
                 let mut hsv = Hsv::from_color(Yxy::new(color.xy.x, color.xy.y, 1.0));
                 hsv.value = 1.0;
                 builder.color(hsv);
+            }
+
+            if let Some(ColorTemperatureData { mirek: Some(mirek) }) = light.color_temperature {
+                let cct = 1_000_000.0 / mirek;
+                builder.cct(cct);
             }
 
             let mqtt_device = builder.build().unwrap();

@@ -601,12 +601,10 @@ dependencies = [
  "native-tls",
  "palette",
  "rumqttc",
- "rustls 0.20.8",
  "serde",
  "serde_json",
  "serde_path_to_error",
  "tokio",
- "tokio-native-tls",
 ]
 
 [[package]]

@@ -26,7 +26,7 @@ async fn main() -> Result<()> {
     publish_init_state(&settings, &mqtt_client, &init_state).await?;
 
     start_mqtt_events_loop(&mqtt_client, &settings, &https_client);
-    start_eventsource_events_loop(eventsource_stream, &mqtt_client, &init_state);
+    start_eventsource_events_loop(eventsource_stream, &settings, &mqtt_client, &init_state);
 
     tokio::signal::ctrl_c().await?;
 

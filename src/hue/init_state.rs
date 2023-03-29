@@ -88,13 +88,16 @@ pub async fn publish_init_state(
 
     // Publish initial state of each discovered device to MQTT
     for mqtt_device in mqtt_devices.values() {
-        let topic = if mqtt_device.sensor_value.is_some() {
-            format!("home/sensors/hue/{}", mqtt_device.id)
+        let topic_template = if mqtt_device.sensor_value.is_some() {
+            &settings.mqtt.sensor_topic
         } else {
-            format!("home/lights/hue/{}", mqtt_device.id)
+            &settings.mqtt.light_topic
         };
 
+        let topic = topic_template.replace("{id}", &mqtt_device.id);
+
         let json = serde_json::to_string(&mqtt_device)?;
+
         mqtt_client
             .client
             .publish(topic, QoS::AtLeastOnce, true, json)

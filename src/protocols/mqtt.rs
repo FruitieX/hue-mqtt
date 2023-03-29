@@ -37,7 +37,10 @@ pub async fn mk_mqtt_client(settings: &Settings) -> Result<MqttClient> {
     let rx = Arc::new(RwLock::new(rx));
 
     client
-        .subscribe("home/lights/hue/+/set", QoS::AtMostOnce)
+        .subscribe(
+            settings.mqtt.light_topic_set.replace("{id}", "+"),
+            QoS::AtMostOnce,
+        )
         .await?;
 
     task::spawn(async move {
@@ -69,17 +72,18 @@ pub async fn mk_mqtt_client(settings: &Settings) -> Result<MqttClient> {
     Ok(MqttClient { client, rx })
 }
 
-pub async fn publish_mqtt_device(mqtt_client: &MqttClient, mqtt_device: &MqttDevice) -> Result<()> {
-    // TODO: use topic from config
-    let topic = format!(
-        "home/{}/hue/{}",
-        if mqtt_device.sensor_value.is_some() {
-            "sensors"
-        } else {
-            "lights"
-        },
-        mqtt_device.id
-    );
+pub async fn publish_mqtt_device(
+    mqtt_client: &MqttClient,
+    settings: &Settings,
+    mqtt_device: &MqttDevice,
+) -> Result<()> {
+    let topic_template = if mqtt_device.sensor_value.is_some() {
+        &settings.mqtt.sensor_topic
+    } else {
+        &settings.mqtt.light_topic
+    };
+
+    let topic = topic_template.replace("{id}", &mqtt_device.id);
 
     let json = serde_json::to_string(&mqtt_device)?;
 

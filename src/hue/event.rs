@@ -12,6 +12,7 @@ use crate::{
         eventsource::PinnedEventSourceStream,
         mqtt::{publish_mqtt_device, MqttClient},
     },
+    settings::Settings,
 };
 
 use super::{
@@ -219,10 +220,12 @@ pub fn try_parse_hue_events(
 
 pub fn start_eventsource_events_loop(
     mut eventsource_stream: PinnedEventSourceStream,
+    settings: &Settings,
     mqtt_client: &MqttClient,
     init_state: &HueState,
 ) {
     let mqtt_client = mqtt_client.clone();
+    let settings = settings.clone();
     let init_state = init_state.clone();
 
     // Somewhat annoyingly, the Hue eventsource endpoint returns all changed
@@ -237,7 +240,8 @@ pub fn start_eventsource_events_loop(
                 match result {
                     Ok(mqtt_devices) => {
                         for mqtt_device in mqtt_devices {
-                            let result = publish_mqtt_device(&mqtt_client, &mqtt_device).await;
+                            let result =
+                                publish_mqtt_device(&mqtt_client, &settings, &mqtt_device).await;
 
                             if let Err(e) = result {
                                 eprintln!("{:?}", e);

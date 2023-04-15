@@ -37,7 +37,7 @@ Now you should be able to view all your Hue devices through e.g. [MQTT Explorer]
 
 ## Topics
 
-Currently the MQTT topics are hardcoded as follows:
+The default MQTT topics are as follows:
 
 - `/home/{lights,sensors}/hue/{id}`: Current state of the device serialized as JSON
 - `/home/lights/hue/{id}/set`: Sets state of the light to given JSON

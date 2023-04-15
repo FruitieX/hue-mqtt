@@ -3,7 +3,7 @@ use eyre::eyre;
 use rumqttc::{AsyncClient, MqttOptions, QoS};
 use std::{sync::Arc, time::Duration};
 use tokio::{
-    sync::{watch::Receiver, RwLock},
+    sync::{mpsc::Receiver, RwLock},
     task,
 };
 
@@ -32,7 +32,7 @@ pub async fn mk_mqtt_client(settings: &Settings) -> Result<MqttClient> {
     options.set_keep_alive(Duration::from_secs(5));
     let (client, mut eventloop) = AsyncClient::new(options, 10);
 
-    let (tx, rx) = tokio::sync::watch::channel(None);
+    let (tx, rx) = tokio::sync::mpsc::channel(100);
     let tx = Arc::new(RwLock::new(tx));
     let rx = Arc::new(RwLock::new(rx));
 
@@ -53,7 +53,7 @@ pub async fn mk_mqtt_client(settings: &Settings) -> Result<MqttClient> {
                         let device: MqttDevice = serde_json::from_slice(&msg.payload)?;
 
                         let tx = mqtt_tx.write().await;
-                        tx.send(Some(device))?;
+                        tx.send(Some(device)).await?;
                     }
 
                     Ok::<(), Box<dyn std::error::Error>>(())
@@ -124,14 +124,11 @@ async fn process_next_mqtt_message(
 ) -> Result<PutResponse> {
     let mqtt_device = {
         let mut mqtt_rx = mqtt_rx.write().await;
-        mqtt_rx
-            .changed()
+        let value = mqtt_rx
+            .recv()
             .await
             .expect("Expected mqtt_rx channel to never close");
-        let value = &*mqtt_rx.borrow();
-        value
-            .clone()
-            .ok_or_else(|| eyre!("Expected to receive mqtt message from rx channel"))?
+        value.ok_or_else(|| eyre!("Expected to receive mqtt message from rx channel"))?
     };
 
     let result = put_hue_light(&settings, &https_client, &mqtt_device).await?;

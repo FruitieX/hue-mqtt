@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use super::rest::{light::ColorTemperatureData, HueState};
+use super::rest::{get_hue_state, light::ColorTemperatureData, HueState};
 use crate::{
     mqtt_device::{MqttDevice, MqttDeviceBuilder},
-    protocols::mqtt::MqttClient,
+    protocols::{https::HyperHttpsClient, mqtt::MqttClient},
     settings::Settings,
 };
 use color_eyre::Result;
@@ -79,12 +79,12 @@ pub fn init_state_to_mqtt_devices(init_state: &HueState) -> HashMap<String, Mqtt
     mqtt_devices
 }
 
-pub async fn publish_init_state(
+pub async fn publish_hue_state(
     settings: &Settings,
     mqtt_client: &MqttClient,
-    init_state: &HueState,
+    hue_state: &HueState,
 ) -> Result<()> {
-    let mqtt_devices = init_state_to_mqtt_devices(init_state);
+    let mqtt_devices = init_state_to_mqtt_devices(hue_state);
 
     // Publish initial state of each discovered device to MQTT
     for mqtt_device in mqtt_devices.values() {
@@ -105,4 +105,36 @@ pub async fn publish_init_state(
     }
 
     Ok(())
+}
+
+/// Poll for hue state and publish to MQTT.
+///
+/// The rationale is that even though we are using the eventsource API, the
+/// bridge may still miss incoming events, and we will never know about that
+/// happening until we ask for the current state.
+pub fn start_hue_state_loop(
+    settings: &Settings,
+    https_client: &HyperHttpsClient,
+    mqtt_client: &MqttClient,
+) {
+    let settings = settings.clone();
+    let https_client = https_client.clone();
+    let mqtt_client = mqtt_client.clone();
+
+    tokio::spawn(async move {
+        loop {
+            let state = get_hue_state(&settings, &https_client).await;
+
+            let result = match state {
+                Ok(state) => publish_hue_state(&settings, &mqtt_client, &state).await,
+                Err(e) => Err(e),
+            };
+
+            if let Err(e) = result {
+                eprintln!("{:?}", e);
+            };
+
+            tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+        }
+    });
 }

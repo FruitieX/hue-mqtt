@@ -1,6 +1,6 @@
 use color_eyre::Result;
 use hue::event::start_eventsource_events_loop;
-use hue::init_state::publish_init_state;
+use hue::init_state::start_hue_state_loop;
 use hue::rest::get_hue_state;
 use protocols::eventsource::mk_eventsource_stream;
 use protocols::https::mk_hyper_https_client;
@@ -23,8 +23,8 @@ async fn main() -> Result<()> {
     let eventsource_stream = mk_eventsource_stream(&settings, &https_client)?;
 
     let init_state = get_hue_state(&settings, &https_client).await?;
-    publish_init_state(&settings, &mqtt_client, &init_state).await?;
 
+    start_hue_state_loop(&settings, &https_client, &mqtt_client);
     start_mqtt_events_loop(&mqtt_client, &settings, &https_client);
     start_eventsource_events_loop(eventsource_stream, &settings, &mqtt_client, &init_state);
 

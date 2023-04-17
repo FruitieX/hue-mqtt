@@ -107,11 +107,21 @@ pub async fn publish_hue_state(
     Ok(())
 }
 
-/// Poll for hue state and publish to MQTT.
+/// Periodically poll for hue state and publish to MQTT.
 ///
-/// The rationale is that even though we are using the eventsource API, the
-/// bridge may still miss incoming events, and we will never know about that
-/// happening until we ask for the current state.
+/// The zigbee network may drop state change messages, and we will never know
+/// about that happening through only the eventsource API.
+/// 
+/// TODO:
+/// Another perhaps better idea for solving this problem would be:
+///
+/// - Every time we request a light state change for a specific device, keep
+/// listening for events from the eventsource api
+/// - If an "acknowledgement" of the state change arrives from the device, we
+/// know that the bulb has been set to the correct state and we don't need to do
+/// anything else
+/// - If no event is received within say 2 seconds, re-send the state change
+/// request
 pub fn start_hue_state_loop(
     settings: &Settings,
     https_client: &HyperHttpsClient,

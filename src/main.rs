@@ -26,7 +26,7 @@ async fn main() -> Result<()> {
 
     start_hue_state_loop(&settings, &https_client, &mqtt_client);
     start_mqtt_events_loop(&mqtt_client, &settings, &https_client);
-    start_eventsource_events_loop(eventsource_stream, &settings, &mqtt_client, &init_state);
+    start_eventsource_events_loop(eventsource_stream, &settings, &mqtt_client, &https_client, &init_state);
 
     tokio::signal::ctrl_c().await?;
 

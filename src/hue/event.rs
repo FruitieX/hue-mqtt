@@ -8,7 +8,7 @@ use serde::Deserialize;
 use tokio::sync::RwLock;
 
 use crate::{
-    mqtt_device::MqttDevice,
+    mqtt_device::{MqttDevice},
     protocols::{
         eventsource::PinnedEventSourceStream,
         https::HyperHttpsClient,
@@ -337,7 +337,22 @@ async fn poll_hue_buttons(
         let mut result = vec![];
 
         for button in poll_result {
-            todo!();
+            //todo!();
+            let button_id = button.id;
+            let button_sensor_value = button.button.unwrap().last_event;
+
+            let mqtt_device = mqtt_devices.get_mut(&button_id).unwrap();
+
+            
+            if mqtt_device.sensor_value == Some("false".to_owned()) && matches!(button_sensor_value.as_ref(), "initial_press" | "long_press" | "repeat"){
+                mqtt_device.sensor_value = Some("true".to_owned());
+                result.push(mqtt_device.clone());
+            }
+
+            if mqtt_device.sensor_value == Some("true".to_owned()) && matches!(button_sensor_value.as_ref(), "short_release" | "long_release") {    
+                mqtt_device.sensor_value = Some("false".to_owned());
+                result.push(mqtt_device.clone());
+            }
         }
 
         result
@@ -345,7 +360,13 @@ async fn poll_hue_buttons(
 
     // Publish changed mqtt_devices to the broker
     for mqtt_device in changed_mqtt_devices {
-        todo!();
+        //todo!();
+        let publish_result = publish_mqtt_device(&mqtt_client, &settings, &mqtt_device).await;
+
+        if let Err(e) = publish_result {
+            eprintln!("{:?}", e);
+        }
+
     }
 
     Ok(())

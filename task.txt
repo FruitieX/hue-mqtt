@@ -1,0 +1,319 @@
+so in that case i suppose you are looking for something philips hue and polling related 
+i'm trying to think of something useful then... there's one use case for polling still 
+that i can think of regarding philips hue 
+like given their v2 api that supports event based communication now
+there's a silly limitation on their end where they for some reason throttle sending events 
+to at most once per second
+this is usually not a problem, but
+let's say for example we have a philips hue dimmer switch (it's like a light switch but it 
+talks to the hue bridge, has 4 buttons that can be bound to different things)
+if we have bound one button to cycle through a list of scenes, we are now limited to pressing 
+the button once per second
+where before, WITH polling, we could actually detect the button being pressed several times per 
+second (limited only to how often we could poll the bridge basically)
+i've sent a message to philips hue about this shortcoming, with no response as of yet
+
+either way an idea that came to mind that you could choose to implement, and maybe spin to your 
+supervisor as an "optimization" to polling functions...
+stick with event based notifications as is currently done in hue-mqtt (utilizing philips' v2 api). 
+You will get notified by the bridge when a button press comes in, but for the next 1 second, no new 
+events will come in due to the bridge throttling issue 
+however, during this time (and ONLY this time) we could poll this particular dimmer switch resource 
+on the bridge
+and our polling results indicate that the state of the switch changes, we could publish this update 
+to mqtt before the hue bridge sends us the event 0-1 seconds later 😛
+let me know what you think, that's about the only improvement that has to do with both philips hue 
+and polling that i can think of at the moment given philips has updated their api from when we first spoke
+
+
+BTW while this work is specific to homectl, I'm pretty sure (you can check) that they have the 
+exact same problem in the much larger open source home automation project home-assistant
+so if you find a neat solution it may be applicable/portable to that as well 🙂 
+the fundamental issue lies in philips' API after all, and i would imagine they have moved to 
+using the new v2 api as well
+
+oh yep, that's a question i can help you with much better 🙂
+so the reason would be that we can choose to do both
+you will notice when you receive your kit and start watching what happens in mqtt explorer when you 
+press dimmer switch buttons - the first button press comes immediately but any subsequent ones we will 
+actually miss at the moment (assuming they come within 1 sec) 
+it is currently relying 100% on the eventsource api
+basically let's say you press the on button twice in rapid succession, what the eventsource api will 
+give you is this:
+immediately at button press:
+- on button has been pressed
+
+1 second later:
+- on button has been released
+- on button has been pressed
+- on button has been released
+but if we were smart about this, we could actually combine the use of the eventsource api and polling, in such a way that 
+we get the advantages from both methods but none of the disadvantages
+so let's go back to our example with two button presses, here's what we could do (again similar timeline representation): 
+
+- We get the on button press event from the eventsource api
+- From the event we can look up which button was pressed, start polling only the relevant resource from the 
+bridge (/resource/button/{id} exists in the hue bridge's REST API for retrieving information only about a 
+certain button by its id)
+
+- In the meantime, let's ignore any events for this particular device id that come from the eventsource api. 
+This way we avoid having to deal with possible duplicated information from both incoming events and polling.
+- Thanks to our temporary polling, we now know ahead of time when the button is released and even possibly 
+pressed again, before the eventsource api sends us the next event with the 1 sec delay
+- We can send this information to mqtt and applications can immediately detect button presses even in 
+rapid succession. Applications may use this information for example to implement double tap detection etc.
+- If nothing happens for let's say 3 seconds, stop polling and remove the device id from our ignore list. 
+This means we will start listening for incoming events again for this device.
+by doing this we would retain the advantages of eventsource api:
+- don't waste resources by constantly polling the bridge
+- we are notified of the first button press immediately when the bridge knows about it
+
+but also we would be able to:
+- learn about subsequent button presses in rapid succession
+hopefully that makes sense, ask if you have any further questions
+
+so this currently implemented polling loop runs on a 10 second timer, and it's a quick hack to solve a specific 
+problem i saw happening occasionally 
+let's say you have 10 hue bulbs, you turn them all on at once
+this means hue-mqtt sends 10 individual http requests to the bridge, the requests all go through
+however it's still possible that the zigbee network (the protocol that the bridge uses to wirelessly communicate 
+with the bulbs) gets too overloaded by so many commands being sent at once that one or more of the bulbs don't 
+ever receive their message
+that bulb will remain off, and we will never know about this if we only rely on the eventsource api 
+(because in this case the bridge only sends events when the state of lights change, but since no state 
+change happens for these missed bulbs we never get an event)
+
+but yeah this is completely unrelated to your work don't worry
+
+another perhaps better idea for solving this problem would be:
+
+- every time we request a light state change for a specific device, keep listening for events from the 
+eventsource api
+- if an "acknowledgement" of the state change arrives from the device, we know that the bulb has been set 
+to the correct state and we don't need to do anything else
+- if no event is received within say 1 second, re-send the state change request
+
+here's another bugfix update https://github.com/FruitieX/hue-mqtt/commit/bba502dcc1d6f49eb1abaa58c1effea256badf6a
+
+again nothing that obsoletes your work in any way
+this comment explains the problem that this fixes quite well 
+https://github.com/FruitieX/hue-mqtt/commit/bba502dcc1d6f49eb1abaa58c1effea256badf6a#diff-85ff624d113e6b5c21734cd21963218e153c425e0437fc3bb65a765de97d3d8aR190-R203
+the problem for me was that homectl would not see subsequent button presses at all unless i would wait at least 
+1 sec between them 
+
+
+where even with the limitations of the eventsource API, i am able to detect that a button was released and 
+pressed again, but due to this bug i wasn't able to do so
+
+I recommend running a local mqtt broker in docker and connecting to it
+
+so the start_mqtt_events_loop basically handles incoming messages from MQTT, and you probably don't need to 
+modify this at all
+start_eventsource_events_loop handles incoming messages from the Hue bridge
+so you probably actually want to modify the latter of these two functions
+you could probably comment out the start_hue_state_loop call entirely to avoid having it interfere with your 
+work (since it will spam your mqtt broker with current state every 10 seconds otherwise)
+but yeah one idea for how you can implement your task:
+
+- Create a tokio::sync::mpsc channel at the top of start_eventsource_events_loop. You can use this channel to send 
+information to another thread (or tokio::spawn block). In this case this information would be "Hey I just now 
+(timestamp) received a notification from the Hue bridge that some button with this button_id was pressed. Please 
+start polling the endpoint for this sensor on the Hue bridge" 
+- Insert a second tokio::spawn block after the first one into the start_eventsource_events_loop function. The 
+job of this second block is to poll the Hue bridge for current sensor state, but only if we have recently 
+received a notification through the tokio::sync::mpsc channel that we should be doing so (i.e. polling). 
+
+Here's an example of tokio::sync::mpsc usage https://docs.rs/tokio/latest/tokio/sync/index.html#mpsc-channel
+
+It's probably a good idea to split this into smaller parts. For example you can start by adding just the channel 
+and an empty tokio::spawn block that constantly reads from the channel and uses the dbg!() macro to print out any 
+messages it encounters.
+i would suggest creating a new struct for the exact format of the message that is passed through the channel, 
+for example:
+
+#[derive(Debug) // so you can call `dbg!()` on this
+struct HueButtonEventNotification {
+  pub button_id: String,
+  pub timestamp: Instant // https://doc.rust-lang.org/std/time/struct.Instant.html
+}
+
+what makes it a bit more difficult is the Rust programming language being so low-level. You need to think about how to send data 
+across threads (hence the channels part)
+luckily the compiler will tell you if you do something wrong. Unlike C/C++ where you may just end up with the program 
+crashing in mysterious hard to debug ways.
+
+okay so you don't need to worry about updating light state or in general, updating any state toward the hue bridge 
+at all
+your job is exclusively to keep the mqtt broker up to date with sensor state, and more specifically to improve the 
+rate at which mqtt clients can be informed about sensor state changes 
+homectl (or similar) will take care of handling the sensor state change that your code has sent it, and it in turn 
+will decide whether state change requires turning a light on/off etc
+toward the end of your testing you can definitely run homectl so that your lamp turns on/off when pressing the switch 
+buttons, but for now i'd stick to as few components as possible which means staring at mqtt explorer after pushing the 
+dimmer switch buttons 🙂 
+regarding publishing messages to the broker, there's a publish_mqtt_device() call inside the 
+start_eventsource_events_loop function
+you can make use of that function in your code as well
+
+and regarding the eventsource api, i didn't find any documentation for it either, frustratingly enough.
+i ended up just "reverse engineering" the bits of the protocol that i needed, you can see in real time what 
+messages it sends you by running 
+curl --insecure -N -H 'hue-application-key: your-hue-bridge-secret-key-here' -H 'Accept: text/event-stream' 
+https://<ip of your bridge>/eventstream/clip/v2 
+
+anyway the result of this "reverse engineering" work you can see in the src/hue/event.rs file, at the top there are 
+structs and enums that model the data that we get back from the eventsource api, you should not need anything that 
+isn't covered by these already
+
+let me know if you get stuck or need more hints, as I said a good next task would be to print a message from 
+start_eventsource_events_loop to the terminal saying you received a button press, and maybe a timestamp as well 
+according to system time. You can later do the channels & tokio::spawn part separately from this, and then try 
+to print the message from the other thread instead.
+
+you don't need to use the timestamp that the bridge provides you
+you can create a new one based on system clock with https://doc.rust-lang.org/std/time/struct.Instant.html
+
+in the end you only need to know "how much time has passed since the last event"
+there's a good example behind the above link on how to do just that
+you shouldn't need to go digging into try_parse_hue_events since it does the conversion 
+work from hue events -> MqttDevice structs for you already
+
+you're right, i think it's enough to look at whether MqttDevice::sensor_value is set or not
+(so whether its .is_some() method returns true or not)
+after thinking about this some more, it actually doesn't matter what event we receive from the bridge 🙂
+this may actually make your work slightly easier - you don't need to think about which button / sensor / whatever updated
+the reason for this is, no matter what event arrives, we now know that there will be no further events of any kind for the next 1+ seconds
+so it may actually make sense to just keep track of when the previous event was received
+not what kind of event it was
+
+and if there's been an event of any kind within the previous second, we spam the GET /clip/v2/resource/button API as fast as the bridge allows 🙂
+this API returns us a list of all buttons and their current state, so we can now go through this list of buttons and check if any button states 
+don't match up with what state we have last seen according to mqtt_devices in start_eventsource_events_loop
+does this make sense? i think it should make the task even easier because the API you need to poll is always the same 
+now, and the polling is controlled only by a timestamp stored in an Instant
+
+i just confirmed this by applying a brightness change to one of my lights and immediately after clicked a hue dimmer 
+switch button - the button press event arrives 1 sec later due to the light event arriving instantly and delaying any
+further events
+stupid hue bridge 😄
+
+to help get started, here's one example of an overall structure you should be able to use in 
+fn start_eventsource_events_loop()
+
+# image 
+
+sure thing
+So the mqtt_devices variable in fn start_eventsource_events_loop contains the most recent state of all hue devices that 
+we have seen previously. Keeping track of this "known" state was necessary, because the Hue eventsource API only sends us 
+information about changes, usually one field at a time.
+Every time try_parse_hue_events successfully parses an incoming event, it fetches the old known MqttDevice state from mqtt_devices, 
+computes what the MqttDevice should now contain based on the event(s), and writes the updated MqttDevice back to mqtt_devices
+You don't need to worry about this part any more than that it exists and does it's job, but you can also read from this mqtt_devices 
+struct to see what hue-mqtt thinks the state of all devices currently should be
+
+So now let's say in your polling loop you get a list of buttons and their current states, you can now loop over each button, 
+and for each button:
+
+- Fetch the corresponding MqttDevice from mqtt_devices. Note that mqtt_devices is an RwLock, so you will have to lock it for 
+reading (and possibly writing) first. I suggest doing something like this
+
+ let mqtt_device = mqtt_devices.write().unwrap().get_mut(&button.id);
+
+- Compare mqtt_device.sensor_value with what the button state was according to the Hue bridge.
+- If mqtt_device.sensor_value == Some(false) but the bridge reports it to be one of initial_press, long_press or repeat, 
+we know that the button has just transitioned from not being pressed to being pressed. We can update the 
+mqtt_device with 
+mqtt_device.sensor_value = Some(true) and send it to the MQTT broker with publish_mqtt_device() 
+- If mqtt_device.sensor_value == Some(true) but the bridge reports it to be one of short_release or long_release, 
+then the 
+same as above but vice versa applies. 
+
+okay I now realize there's some nontrivial amount of Rust plumbing work to do that I don't necessarily feel like is relevant for 
+your work on the thesis, what do you think about me helping out with that part and committing it to a separate branch?
+
+yeah... so the problem becomes that we need to pass shared references to some data to two threads, where before there was only one thread
+and you need to be very careful when doing that, luckily rust will complain if something is wrong but the fix is not always obvious and 
+just requires experience with Rust
+the second thread that i'm talking about in this context is the one that would perform the polling
+
+it contains the changes from this screenshot and some of the extra plumbing that had to be done to make it compile
+i also made a suggested structure for a new poll_hue_buttons function, because you want to avoid holding onto the RwLock write lock across await points, so that's why it makes sense to collect changed mqtt_devices first, and only then start publishing these to mqtt (which is async and thus requires await) 
+fill in the todo!() blanks. 🙂
+sorry about this mess. the task was more difficult than anticipated in the end
+
+yeah that's true
+you may want to ignore incoming button events while polling
+i think whenever any event comes in, if you:
+
+- ignore any further button related events for the next 1.5 sec
+- while simultaneously polling the buttons resource API for the next 1.5 sec
+
+you should end up with something that works quite well 
+
+during this time if any event (also button related) comes in, you reset the polling timeout to 
+current system time + 1.5 sec
+
+the reason for this is that if you haven't seen an event for over 1.5 sec, you can be sure that 
+the bridge doesn't have any more events "queued" up right now.
+
+there should now only be the rare possibility for processing a duplicate event if we receive an event 
+exactly at the 1.5 sec mark while we were simultaneously polling, there may be solutions around this too 
+since the bridge lets us know the exact timestamp for these button related events (down to the millisecond) 
+we might be able to detect and ignore duplicate events
+you don't need to include this in the scope of your work if you don't want, just throwing around ideas
+
+oh, maybe it would be a better idea to use a shared Option<Instant> type between the tokio::spawn tasks
+that way you could synchronize both threads on when exactly the polling starts and ends
+
+here's some pseudocode on what i mean
+
+// A watch channel that can be used to send a notification to the polling thread
+    // that a Hue bridge event of any kind was received
+    let notify = Arc::new(Notify::new());
+    let prev_event: Arc<RwLock<Option<Instant>>> = Default::default();
+
+    {
+        let notify = notify.clone();
+        let prev_event = prev_event.clone();
+      
+        tokio::spawn(async move {
+            ...
+                if let eventsource_client::SSE::Event(e) = e {
+                    // Check whether we should be ignoring button events
+                    let ignore_buttons = {
+                        let prev_event = prev_event.read().await;
+                        prev_event
+                            .map(|prev_event| prev_event.elapsed() < Duration::from_millis(1500))
+                            .unwrap_or(false)
+                    };
+
+                    let result = try_parse_hue_events(&mqtt_devices, e.data, ignore_buttons).await;
+        
+                    {
+                        let mut prev_event = prev_event.write().await;
+                        *prev_event = Some(Instant::now());
+                    }
+
+                    // Send a notification to the polling task that an event has just arrived
+                    notify.notify_one();
+
+                    ...
+        });
+    }
+    
+    tokio::spawn(async move {
+        loop {
+            // Wait for incoming event notifications
+            notify.notified().await;
+
+            ...
+
+            let prev_event = *prev_event.read().await;
+            if let Some(prev_event) = prev_event {
+                // Start polling for Hue bridge button state
+                while prev_event.elapsed() < Duration::from_millis(1500) {
+                    ...
+                }
+            }
+        }
+    });

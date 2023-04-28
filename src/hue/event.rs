@@ -1,14 +1,14 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use color_eyre::Result;
 use eyre::eyre;
 use futures::TryStreamExt;
 use palette::{FromColor, Hsv, Yxy};
 use serde::Deserialize;
-use tokio::sync::RwLock;
+use tokio::{sync::{RwLock, Notify}, time::Instant};
 
 use crate::{
-    mqtt_device::{MqttDevice},
+    mqtt_device::MqttDevice,
     protocols::{
         eventsource::PinnedEventSourceStream,
         https::HyperHttpsClient,
@@ -145,6 +145,7 @@ fn hue_event_data_to_mqtt_device(
 pub async fn try_parse_hue_events(
     mqtt_devices: &RwLock<HashMap<String, MqttDevice>>,
     events: String,
+    ignore_buttons: bool
 ) -> Result<Vec<MqttDevice>> {
     let serde_json_value: serde_json::Value = serde_json::from_str(&events)?;
     let result = serde_json::from_str::<Vec<HueEvent>>(&events);
@@ -204,7 +205,9 @@ pub async fn try_parse_hue_events(
                 let mut mqtt_devices = mqtt_devices.write().await;
                 update_data_vec
                     .iter()
-                    .filter(|data| matches!(data, UpdateData::Button(_) | UpdateData::Motion(_)))
+                    .filter(|data| (matches!(data, UpdateData::Button(_)) && matches!(ignore_buttons, false)) | matches!(data, UpdateData::Motion(_))) 
+                    // Only filter data if ignore_buttons flag is set to false and event is button related, otherwise we ignore any button updates for now
+                    // Sensors are filtered as normal
                     .filter_map(|data| {
                         let mqtt_device = hue_event_data_to_mqtt_device(data, &mqtt_devices);
 
@@ -255,17 +258,37 @@ pub fn start_eventsource_events_loop(
     // that a Hue bridge event of any kind was received
     let (tx, mut rx) = tokio::sync::watch::channel(());
 
+    let notify = Arc::new(Notify::new());
+    let prev_event: Arc<RwLock<Option<Instant>>> = Default::default();
+
     {
         let mqtt_client = mqtt_client.clone();
         let mqtt_devices = mqtt_devices.clone();
         let settings = settings.clone();
 
+        let notify = notify.clone();
+        let prev_event = prev_event.clone();
+
         tokio::spawn(async move {
             while let Ok(Some(e)) = eventsource_stream.try_next().await {
                 if let eventsource_client::SSE::Event(e) = e {
-                    let result = try_parse_hue_events(&mqtt_devices, e.data).await;
+                    // Check whether we should be ignoring button events
+                    let ignore_buttons = {
+                        let prev_event = prev_event.read().await;
+                        prev_event
+                            .map(|prev_event| prev_event.elapsed() < Duration::from_millis(1500))
+                            .unwrap_or(false)
+                    };
+
+                    let result = try_parse_hue_events(&mqtt_devices, e.data, ignore_buttons).await;
+
+                    {
+                        let mut prev_event = prev_event.write().await;
+                        *prev_event = Some(Instant::now());
+                    }
 
                     // Send a notification to the polling task that an event has just arrived
+                    notify.notify_one();
                     tx.send(())
                         .expect("Expected watch channel to never be closed");
 
@@ -292,6 +315,7 @@ pub fn start_eventsource_events_loop(
 
     tokio::spawn(async move {
         loop {
+            notify.notified().await;
             // Wait for incoming event notifications
             rx.changed()
                 .await
@@ -305,20 +329,27 @@ pub fn start_eventsource_events_loop(
             // is unlikely that state has changed this quickly
             tokio::time::sleep(std::time::Duration::from_millis(200)).await;
 
+            let prev_event = *prev_event.read().await;
+
+            if let Some(prev_event) = prev_event {
+
             // Start polling for Hue bridge button state
-            while event_timestamp.elapsed() < std::time::Duration::from_millis(1000) {
-                println!(
-                    "Polling hue buttons, time since event: {}ms",
-                    event_timestamp.elapsed().as_millis()
-                );
 
-                let result =
-                    poll_hue_buttons(&settings, &mqtt_client, &https_client, &mqtt_devices).await;
+                while prev_event.elapsed() < Duration::from_millis(1500) {
+                    println!(
+                        "Polling hue buttons, time since event: {}ms",
+                        event_timestamp.elapsed().as_millis()
+                    );
 
-                if let Err(e) = result {
-                    eprintln!("{:?}", e);
+                    let result =
+                        poll_hue_buttons(&settings, &mqtt_client, &https_client, &mqtt_devices).await;
+
+                    if let Err(e) = result {
+                        eprintln!("{:?}", e);
+                    }
                 }
             }
+
         }
     });
 }

@@ -35,6 +35,32 @@ This program synchronizes a Philips Hue bridge with an MQTT broker.
 
 Now you should be able to view all your Hue devices through e.g. [MQTT Explorer](http://mqtt-explorer.com/) once connected to the same MQTT broker.
 
+### Setting Up Mosquitto 
+
+- Ensure Docker Desktop is installed and is running
+
+- Pull the official Mosquitto Docker image using the following command:
+
+```
+$ docker pull eclipse-mosquitto
+```
+
+- Run a container using the new image:
+
+```
+$ docker run -it -p 1883:1883 -p 9001:9001 -v mosquitto.conf:/mosquitto/config/mosquitto.conf -v /mosquitto/data -v /mosquitto/log eclipse-mosquitto
+```
+
+### Setting Up MQTT Explorer
+
+- Install [MQTT Explorer](http://mqtt-explorer.com/)
+
+- Connect to the MQTT broker by configuring the connection
+
+  - Setting the protocol to mqtt://
+  - Setting the host to localhost
+  - Setting the port to 1883
+
 ## Topics
 
 The default MQTT topics are as follows:

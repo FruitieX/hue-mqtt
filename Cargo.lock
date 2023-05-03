@@ -600,6 +600,7 @@ dependencies = [
  "hyper-tls",
  "native-tls",
  "palette",
+ "rand",
  "rumqttc",
  "serde",
  "serde_json",

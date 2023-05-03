@@ -277,12 +277,10 @@ pub fn start_eventsource_events_loop(
     // incoming events to be able to piece together current device state.
     let mqtt_devices = Arc::new(RwLock::new(init_state_to_mqtt_devices(&init_state)));
 
-    // A watch channel that can be used to send a notification to the polling thread
-    // that a Hue bridge event of any kind was received
-    let (tx, mut rx) = tokio::sync::watch::channel(());
-
+    // Notify channel is used to send a notification to the polling task that a
+    // Hue bridge event of any kind was received
     let notify = Arc::new(Notify::new());
-    let prev_event: Arc<RwLock<Option<Instant>>> = Default::default();
+    let prev_event_t: Arc<RwLock<Option<Instant>>> = Default::default();
 
     {
         let mqtt_client = mqtt_client.clone();
@@ -290,30 +288,28 @@ pub fn start_eventsource_events_loop(
         let settings = settings.clone();
 
         let notify = notify.clone();
-        let prev_event = prev_event.clone();
+        let prev_event_t = prev_event_t.clone();
 
         tokio::spawn(async move {
             while let Ok(Some(e)) = eventsource_stream.try_next().await {
                 if let eventsource_client::SSE::Event(e) = e {
                     // Check whether we should be ignoring button events
                     let ignore_buttons = {
-                        let prev_event = prev_event.read().await;
-                        prev_event
-                            .map(|prev_event| prev_event.elapsed() < Duration::from_millis(1500))
+                        let prev_event_t = prev_event_t.read().await;
+                        prev_event_t
+                            .map(|prev_event_t| prev_event_t.elapsed() < Duration::from_millis(1500))
                             .unwrap_or(false)
                     };
 
                     let result = try_parse_hue_events(&mqtt_devices, e.data, ignore_buttons).await;
 
                     {
-                        let mut prev_event = prev_event.write().await;
-                        *prev_event = Some(Instant::now());
+                        let mut prev_event_t = prev_event_t.write().await;
+                        *prev_event_t = Some(Instant::now());
                     }
 
                     // Send a notification to the polling task that an event has just arrived
                     notify.notify_one();
-                    tx.send(())
-                        .expect("Expected watch channel to never be closed");
 
                     match result {
                         Ok(mqtt_devices) => {
@@ -338,32 +334,20 @@ pub fn start_eventsource_events_loop(
 
     tokio::spawn(async move {
         loop {
-            notify.notified().await;
             // Wait for incoming event notifications
-            rx.changed()
-                .await
-                .expect("Expected watch channel to never be closed");
-
-            println!("Got event, starting polling...",);
-
-            let event_timestamp = tokio::time::Instant::now();
+            notify.notified().await;
 
             // Sleep some time between the event arriving and starting to poll - it
             // is unlikely that state has changed this quickly
             tokio::time::sleep(std::time::Duration::from_millis(200)).await;
 
             let mut interval = tokio::time::interval(Duration::from_millis(250));
-            let prev_event = *prev_event.read().await;
+            let prev_event_t = *prev_event_t.read().await;
 
-            if let Some(prev_event) = prev_event {
+            if let Some(prev_event_t) = prev_event_t {
                 // Start polling for Hue bridge button state
-
-                while prev_event.elapsed() < Duration::from_millis(1500) {
+                while prev_event_t.elapsed() < Duration::from_millis(1500) {
                     interval.tick().await;
-                    println!(
-                        "Polling hue buttons, time since event: {}ms",
-                        event_timestamp.elapsed().as_millis()
-                    );
 
                     let result =
                         poll_hue_buttons(&settings, &mqtt_client, &https_client, &mqtt_devices)

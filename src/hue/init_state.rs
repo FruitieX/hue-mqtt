@@ -111,7 +111,7 @@ pub async fn publish_hue_state(
 ///
 /// The zigbee network may drop state change messages, and we will never know
 /// about that happening through only the eventsource API.
-/// 
+///
 /// TODO:
 /// Another perhaps better idea for solving this problem would be:
 ///

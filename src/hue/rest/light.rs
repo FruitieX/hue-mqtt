@@ -3,10 +3,9 @@ use palette::{FromColor, Yxy};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    protocols::{
-        https::{mk_get_request, mk_put_request, HyperHttpsClient},
-    },
-    settings::Settings, mqtt_device::MqttDevice,
+    mqtt_device::MqttDevice,
+    protocols::https::{mk_get_request, mk_put_request, HyperHttpsClient},
+    settings::Settings,
 };
 
 use super::common::Owner;

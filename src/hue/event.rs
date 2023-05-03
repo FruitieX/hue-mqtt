@@ -5,7 +5,10 @@ use eyre::eyre;
 use futures::TryStreamExt;
 use palette::{FromColor, Hsv, Yxy};
 use serde::Deserialize;
-use tokio::{sync::{RwLock, Notify}, time::Instant};
+use tokio::{
+    sync::{Notify, RwLock},
+    time::Instant,
+};
 
 use crate::{
     mqtt_device::MqttDevice,
@@ -145,7 +148,7 @@ fn hue_event_data_to_mqtt_device(
 pub async fn try_parse_hue_events(
     mqtt_devices: &RwLock<HashMap<String, MqttDevice>>,
     events: String,
-    ignore_buttons: bool
+    ignore_buttons: bool,
 ) -> Result<Vec<MqttDevice>> {
     let serde_json_value: serde_json::Value = serde_json::from_str(&events)?;
     let result = serde_json::from_str::<Vec<HueEvent>>(&events);
@@ -205,7 +208,10 @@ pub async fn try_parse_hue_events(
                 let mut mqtt_devices = mqtt_devices.write().await;
                 update_data_vec
                     .iter()
-                    .filter(|data| (matches!(data, UpdateData::Button(_)) && matches!(ignore_buttons, false)) | matches!(data, UpdateData::Motion(_))) 
+                    .filter(|data| {
+                        (matches!(data, UpdateData::Button(_)) && matches!(ignore_buttons, false))
+                            | matches!(data, UpdateData::Motion(_))
+                    })
                     // Only filter data if ignore_buttons flag is set to false and event is button related, otherwise we ignore any button updates for now
                     // Sensors are filtered as normal
                     .filter_map(|data| {
@@ -332,8 +338,7 @@ pub fn start_eventsource_events_loop(
             let prev_event = *prev_event.read().await;
 
             if let Some(prev_event) = prev_event {
-
-            // Start polling for Hue bridge button state
+                // Start polling for Hue bridge button state
 
                 while prev_event.elapsed() < Duration::from_millis(1500) {
                     println!(
@@ -342,14 +347,14 @@ pub fn start_eventsource_events_loop(
                     );
 
                     let result =
-                        poll_hue_buttons(&settings, &mqtt_client, &https_client, &mqtt_devices).await;
+                        poll_hue_buttons(&settings, &mqtt_client, &https_client, &mqtt_devices)
+                            .await;
 
                     if let Err(e) = result {
                         eprintln!("{:?}", e);
                     }
                 }
             }
-
         }
     });
 }
@@ -374,13 +379,22 @@ async fn poll_hue_buttons(
 
             let mqtt_device = mqtt_devices.get_mut(&button_id).unwrap();
 
-            
-            if mqtt_device.sensor_value == Some("false".to_owned()) && matches!(button_sensor_value.as_ref(), "initial_press" | "long_press" | "repeat"){
+            if mqtt_device.sensor_value == Some("false".to_owned())
+                && matches!(
+                    button_sensor_value.as_ref(),
+                    "initial_press" | "long_press" | "repeat"
+                )
+            {
                 mqtt_device.sensor_value = Some("true".to_owned());
                 result.push(mqtt_device.clone());
             }
 
-            if mqtt_device.sensor_value == Some("true".to_owned()) && matches!(button_sensor_value.as_ref(), "short_release" | "long_release") {    
+            if mqtt_device.sensor_value == Some("true".to_owned())
+                && matches!(
+                    button_sensor_value.as_ref(),
+                    "short_release" | "long_release"
+                )
+            {
                 mqtt_device.sensor_value = Some("false".to_owned());
                 result.push(mqtt_device.clone());
             }
@@ -397,7 +411,6 @@ async fn poll_hue_buttons(
         if let Err(e) = publish_result {
             eprintln!("{:?}", e);
         }
-
     }
 
     Ok(())

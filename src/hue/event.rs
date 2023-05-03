@@ -286,7 +286,6 @@ pub fn start_eventsource_events_loop(
         let mqtt_client = mqtt_client.clone();
         let mqtt_devices = mqtt_devices.clone();
         let settings = settings.clone();
-
         let notify = notify.clone();
         let prev_event_t = prev_event_t.clone();
 

@@ -14,8 +14,15 @@ pub struct Metadata {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+pub struct ButtonReport {
+    pub event: String,
+    pub updated: String,
+}
+
+#[derive(Deserialize, Debug, Clone)]
 pub struct ButtonEventData {
     pub last_event: String,
+    pub button_report: ButtonReport,
 }
 
 #[derive(Deserialize, Debug, Clone)]

@@ -9,11 +9,17 @@ use crate::{
 use super::common::Owner;
 
 #[derive(Deserialize, Debug, Clone)]
+pub struct MotionEventData {
+    pub motion: bool,
+}
+
+#[derive(Deserialize, Debug, Clone)]
 pub struct MotionData {
     pub id: String,
     pub id_v1: String,
     pub owner: Owner,
     pub enabled: bool,
+    pub motion: Option<MotionEventData>,
 }
 
 #[derive(Deserialize, Debug, Clone)]

@@ -13,4 +13,7 @@ pub struct MqttDevice {
     pub color: Option<Hsv>,
     pub transition_ms: Option<f32>,
     pub sensor_value: Option<String>,
+
+    #[serde(skip_serializing, skip_deserializing)]
+    pub updated: Option<String>,
 }

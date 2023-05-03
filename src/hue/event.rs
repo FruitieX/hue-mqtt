@@ -98,10 +98,18 @@ fn hue_event_data_to_mqtt_device(
                 _ => None,
             };
 
-            if let Some(sensor_value) = sensor_value {
-                let mut mqtt_device = mqtt_devices.get(&button.id)?.clone();
+            let mut mqtt_device = mqtt_devices.get(&button.id)?.clone();
 
+            // Ignore already seen button reports
+            if let Some(updated) = mqtt_device.updated.as_ref() {
+                if updated == &button.button.button_report.updated {
+                    return None;
+                }
+            }
+
+            if let Some(sensor_value) = sensor_value {
                 mqtt_device.sensor_value = Some(sensor_value.to_string());
+                mqtt_device.updated = Some(button.button.button_report.updated.clone());
 
                 return Some(mqtt_device);
             }
@@ -373,11 +381,20 @@ async fn poll_hue_buttons(
         let mut result = vec![];
 
         for button in poll_result {
-            //todo!();
             let button_id = button.id;
-            let button_sensor_value = button.button.unwrap().last_event;
+            let button_sensor_value = button.button.as_ref().unwrap().last_event.clone();
 
             let mqtt_device = mqtt_devices.get_mut(&button_id).unwrap();
+
+            // Ignore already seen button reports
+            if let (Some(updated), Some(button)) = (
+                Some(&mqtt_device).as_ref().and_then(|x| x.updated.as_ref()),
+                &button.button,
+            ) {
+                if updated == &button.button_report.updated {
+                    continue;
+                }
+            }
 
             if mqtt_device.sensor_value == Some("false".to_owned())
                 && matches!(
@@ -398,6 +415,8 @@ async fn poll_hue_buttons(
                 mqtt_device.sensor_value = Some("false".to_owned());
                 result.push(mqtt_device.clone());
             }
+
+            mqtt_device.updated = Some(button.button.unwrap().button_report.updated.clone());
         }
 
         result
@@ -405,7 +424,6 @@ async fn poll_hue_buttons(
 
     // Publish changed mqtt_devices to the broker
     for mqtt_device in changed_mqtt_devices {
-        //todo!();
         let publish_result = publish_mqtt_device(&mqtt_client, &settings, &mqtt_device).await;
 
         if let Err(e) = publish_result {

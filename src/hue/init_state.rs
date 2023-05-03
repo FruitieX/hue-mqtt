@@ -47,15 +47,19 @@ pub fn init_state_to_mqtt_devices(init_state: &HueState) -> HashMap<String, Mqtt
         let device = init_state.devices.get(&button.owner.rid);
 
         if let Some(device) = device {
-            let mqtt_device = MqttDeviceBuilder::default()
-                .id(button.id.clone())
-                .name(format!(
-                    "{} button {}",
-                    device.metadata.name, button.metadata.control_id
-                ))
-                .sensor_value("false")
-                .build()
-                .unwrap();
+            let mut builder = MqttDeviceBuilder::default();
+
+            builder.id(button.id.clone()).name(format!(
+                "{} button {}",
+                device.metadata.name, button.metadata.control_id
+            ));
+
+            if let Some(button_event) = &button.button {
+                builder.sensor_value(button_event.last_event.to_string());
+                builder.updated(button_event.button_report.updated.clone());
+            }
+
+            let mqtt_device = builder.build().unwrap();
 
             mqtt_devices.insert(mqtt_device.id.clone(), mqtt_device);
         }
@@ -65,12 +69,17 @@ pub fn init_state_to_mqtt_devices(init_state: &HueState) -> HashMap<String, Mqtt
         let device = init_state.devices.get(&motion.owner.rid);
 
         if let Some(device) = device {
-            let mqtt_device = MqttDeviceBuilder::default()
+            let mut builder = MqttDeviceBuilder::default();
+
+            builder
                 .id(motion.id.clone())
-                .name(device.metadata.name.clone())
-                .sensor_value("false")
-                .build()
-                .unwrap();
+                .name(device.metadata.name.clone());
+
+            if let Some(motion_event) = &motion.motion {
+                builder.sensor_value(motion_event.motion.to_string());
+            }
+
+            let mqtt_device = builder.build().unwrap();
 
             mqtt_devices.insert(mqtt_device.id.clone(), mqtt_device);
         }

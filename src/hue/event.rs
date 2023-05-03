@@ -352,12 +352,14 @@ pub fn start_eventsource_events_loop(
             // is unlikely that state has changed this quickly
             tokio::time::sleep(std::time::Duration::from_millis(200)).await;
 
+            let mut interval = tokio::time::interval(Duration::from_millis(250));
             let prev_event = *prev_event.read().await;
 
             if let Some(prev_event) = prev_event {
                 // Start polling for Hue bridge button state
 
                 while prev_event.elapsed() < Duration::from_millis(1500) {
+                    interval.tick().await;
                     println!(
                         "Polling hue buttons, time since event: {}ms",
                         event_timestamp.elapsed().as_millis()

@@ -217,8 +217,17 @@ pub async fn try_parse_hue_events(
                 update_data_vec
                     .iter()
                     .filter(|data| {
-                        (matches!(data, UpdateData::Button(_)) && matches!(ignore_buttons, false))
+                        (matches!(data, UpdateData::Button(_)) && !ignore_buttons)
                             | matches!(data, UpdateData::Motion(_))
+                    })
+                    .filter(|data| match data {
+                        UpdateData::Button(button) => {
+                            // Ignore all other button presses from the
+                            // eventsource API. Button resource polling will
+                            // handle the other cases.
+                            button.button.last_event == "initial_press"
+                        }
+                        _ => true,
                     })
                     // Only filter data if ignore_buttons flag is set to false and event is button related, otherwise we ignore any button updates for now
                     // Sensors are filtered as normal

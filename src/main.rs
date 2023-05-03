@@ -5,7 +5,7 @@ use hue::rest::get_hue_state;
 use mqtt::events::start_mqtt_events_loop;
 use protocols::eventsource::mk_eventsource_stream;
 use protocols::https::mk_hyper_https_client;
-use protocols::mqtt::{mk_mqtt_client};
+use protocols::mqtt::mk_mqtt_client;
 
 use crate::settings::read_settings;
 

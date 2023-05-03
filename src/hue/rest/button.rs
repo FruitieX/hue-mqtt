@@ -25,6 +25,15 @@ pub struct ButtonEventData {
     pub button_report: ButtonReport,
 }
 
+impl ButtonEventData {
+    pub fn is_pressed(&self) -> bool {
+        matches!(
+            self.button_report.event.as_ref(),
+            "initial_press" | "long_press" | "repeat"
+        )
+    }
+}
+
 #[derive(Deserialize, Debug, Clone)]
 pub struct ButtonData {
     pub id: String,

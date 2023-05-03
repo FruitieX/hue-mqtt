@@ -296,7 +296,9 @@ pub fn start_eventsource_events_loop(
                     let ignore_buttons = {
                         let prev_event_t = prev_event_t.read().await;
                         prev_event_t
-                            .map(|prev_event_t| prev_event_t.elapsed() < Duration::from_millis(1500))
+                            .map(|prev_event_t| {
+                                prev_event_t.elapsed() < Duration::from_millis(1500)
+                            })
                             .unwrap_or(false)
                     };
 
@@ -375,14 +377,11 @@ async fn poll_hue_buttons(
         let mut result = vec![];
 
         for button in poll_result {
-            let button_id = button.id;
-            let button_sensor_value = button.button.as_ref().unwrap().last_event.clone();
-
-            let mqtt_device = mqtt_devices.get_mut(&button_id).unwrap();
+            let mqtt_device = mqtt_devices.get_mut(&button.id);
 
             // Ignore already seen button reports
             if let (Some(updated), Some(button)) = (
-                Some(&mqtt_device).as_ref().and_then(|x| x.updated.as_ref()),
+                mqtt_device.as_ref().and_then(|x| x.updated.as_ref()),
                 &button.button,
             ) {
                 if updated == &button.button_report.updated {
@@ -390,27 +389,45 @@ async fn poll_hue_buttons(
                 }
             }
 
-            if mqtt_device.sensor_value == Some("false".to_owned())
-                && matches!(
-                    button_sensor_value.as_ref(),
-                    "initial_press" | "long_press" | "repeat"
-                )
-            {
-                mqtt_device.sensor_value = Some("true".to_owned());
-                result.push(mqtt_device.clone());
-            }
+            // Check if button state matches previously seen sensor value
+            if let (Some(mqtt_device), Some(button)) = (mqtt_device, &button.button) {
+                match (
+                    mqtt_device.sensor_value.as_deref(),
+                    button.is_pressed(),
+                    mqtt_device.updated.as_ref(),
+                ) {
+                    (Some("false"), true, _) => {
+                        mqtt_device.sensor_value = Some(true.to_string());
+                        result.push(mqtt_device.clone());
+                    }
+                    (Some("true"), false, _) => {
+                        mqtt_device.sensor_value = Some(false.to_string());
+                        result.push(mqtt_device.clone());
+                    }
+                    (Some("false"), false, Some(updated)) => {
+                        // We seem to have missed a false -> true -> false transition, let's fake a sensor_value of "true"
+                        if updated != &button.button_report.updated {
+                            mqtt_device.sensor_value = Some(true.to_string());
+                            result.push(mqtt_device.clone());
+                            mqtt_device.sensor_value = Some(false.to_string());
+                            result.push(mqtt_device.clone());
+                        }
+                    }
+                    (Some("true"), true, Some(updated)) => {
+                        // We seem to have missed a true -> false -> true transition, let's fake a sensor_value of "false"
+                        if updated != &button.button_report.updated {
+                            mqtt_device.sensor_value = Some(false.to_string());
+                            result.push(mqtt_device.clone());
+                            mqtt_device.sensor_value = Some(true.to_string());
+                            result.push(mqtt_device.clone());
+                        }
+                    }
 
-            if mqtt_device.sensor_value == Some("true".to_owned())
-                && matches!(
-                    button_sensor_value.as_ref(),
-                    "short_release" | "long_release"
-                )
-            {
-                mqtt_device.sensor_value = Some("false".to_owned());
-                result.push(mqtt_device.clone());
-            }
+                    _ => {}
+                };
 
-            mqtt_device.updated = Some(button.button.unwrap().button_report.updated.clone());
+                mqtt_device.updated = Some(button.button_report.updated.clone());
+            }
         }
 
         result

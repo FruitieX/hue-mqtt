@@ -1,4 +1,4 @@
-FROM rust:1.68 AS builder
+FROM rust:1.69 AS builder
 WORKDIR /usr/src/add-bot
 COPY . .
 RUN cargo install --path .

@@ -1,9 +1,9 @@
 use color_eyre::Result;
 use eyre::eyre;
 use rumqttc::{AsyncClient, MqttOptions, QoS};
-use std::{sync::Arc, time::Duration};
+use std::{collections::VecDeque, sync::Arc, time::Duration};
 use tokio::{
-    sync::{mpsc::Receiver, RwLock},
+    sync::{Notify, RwLock},
     task,
 };
 
@@ -15,12 +15,13 @@ use crate::{
 
 use super::https::HyperHttpsClient;
 
-pub type MqttRx = Arc<RwLock<Receiver<Option<MqttDevice>>>>;
+type UnhandledMessages = Arc<RwLock<VecDeque<MqttDevice>>>;
 
 #[derive(Clone)]
 pub struct MqttClient {
     pub client: AsyncClient,
-    pub rx: MqttRx,
+    pub unhandled_messages: UnhandledMessages,
+    pub notify: Arc<Notify>,
 }
 
 pub async fn mk_mqtt_client(settings: &Settings) -> Result<MqttClient> {
@@ -32,9 +33,8 @@ pub async fn mk_mqtt_client(settings: &Settings) -> Result<MqttClient> {
     options.set_keep_alive(Duration::from_secs(5));
     let (client, mut eventloop) = AsyncClient::new(options, 10);
 
-    let (tx, rx) = tokio::sync::mpsc::channel(100);
-    let tx = Arc::new(RwLock::new(tx));
-    let rx = Arc::new(RwLock::new(rx));
+    let unhandled_messages: UnhandledMessages = Default::default();
+    let notify = Arc::new(Notify::new());
 
     client
         .subscribe(
@@ -43,33 +43,50 @@ pub async fn mk_mqtt_client(settings: &Settings) -> Result<MqttClient> {
         )
         .await?;
 
-    task::spawn(async move {
-        loop {
-            while let Ok(notification) = eventloop.poll().await {
-                let mqtt_tx = tx.clone();
+    {
+        let unhandled_messages = unhandled_messages.clone();
+        let notify = notify.clone();
 
-                let res = (|| async move {
-                    if let rumqttc::Event::Incoming(rumqttc::Packet::Publish(msg)) = notification {
-                        let device: MqttDevice = serde_json::from_slice(&msg.payload)?;
+        task::spawn(async move {
+            loop {
+                while let Ok(notification) = eventloop.poll().await {
+                    let unhandled_messages = unhandled_messages.clone();
+                    let notify = notify.clone();
 
-                        let tx = mqtt_tx.write().await;
-                        tx.send(Some(device)).await?;
+                    let res = (|| async move {
+                        if let rumqttc::Event::Incoming(rumqttc::Packet::Publish(msg)) =
+                            notification
+                        {
+                            let device: MqttDevice = serde_json::from_slice(&msg.payload)?;
+
+                            // Push device update to the unhandled messages
+                            // queue, removing any existing unhandled messages
+                            // for the same device.
+                            let mut unhandled_messages = unhandled_messages.write().await;
+                            unhandled_messages.retain(|d: &MqttDevice| d.id != device.id);
+                            unhandled_messages.push_back(device);
+
+                            // Notify Hue bridge communication task that there are new messages
+                            notify.notify_one();
+                        }
+
+                        Ok::<(), Box<dyn std::error::Error>>(())
+                    })()
+                    .await;
+
+                    if let Err(e) = res {
+                        eprintln!("MQTT error: {:?}", e);
                     }
-
-                    Ok::<(), Box<dyn std::error::Error>>(())
-                })()
-                .await;
-
-                if let Err(e) = res {
-                    eprintln!("MQTT error: {:?}", e);
                 }
             }
+        });
+    }
 
-            tokio::time::sleep(Duration::from_millis(100)).await;
-        }
-    });
-
-    Ok(MqttClient { client, rx })
+    Ok(MqttClient {
+        client,
+        unhandled_messages,
+        notify,
+    })
 }
 
 pub async fn publish_mqtt_device(
@@ -100,42 +117,52 @@ pub fn start_mqtt_events_loop(
     settings: &Settings,
     https_client: &HyperHttpsClient,
 ) {
-    let mqtt_rx = mqtt_client.rx.clone();
+    let unhandled_messages = mqtt_client.unhandled_messages.clone();
+    let notify = mqtt_client.notify.clone();
+
     let settings = settings.clone();
     let https_client = https_client.clone();
 
     tokio::spawn(async move {
         loop {
-            let result =
-                process_next_mqtt_message(mqtt_rx.clone(), settings.clone(), https_client.clone())
-                    .await;
+            let next_message = {
+                let mut unhandled_messages = unhandled_messages.write().await;
+                unhandled_messages.pop_front()
+            };
 
-            if let Err(e) = result {
-                eprintln!("{:?}", e);
+            match next_message {
+                Some(message) => {
+                    let result =
+                        process_next_mqtt_message(message, settings.clone(), https_client.clone())
+                            .await;
+
+                    if let Err(e) = result {
+                        eprintln!("Error while processing MQTT message: {:?}", e);
+                    }
+                }
+                None => {
+                    // Wait until we get notified that there are new messages.
+                    notify.notified().await;
+                }
             }
         }
     });
 }
 
 async fn process_next_mqtt_message(
-    mqtt_rx: MqttRx,
+    mqtt_device: MqttDevice,
     settings: Settings,
     https_client: HyperHttpsClient,
-) -> Result<PutResponse> {
-    let mqtt_device = {
-        let mut mqtt_rx = mqtt_rx.write().await;
-        let value = mqtt_rx
-            .recv()
-            .await
-            .expect("Expected mqtt_rx channel to never close");
-        value.ok_or_else(|| eyre!("Expected to receive mqtt message from rx channel"))?
-    };
-
+) -> Result<Option<PutResponse>> {
     let result = put_hue_light(&settings, &https_client, &mqtt_device).await?;
 
     if !result.errors.is_empty() {
-        Err(eyre!("{:#?}", result.errors))
+        Err(eyre!(
+            "Error while sending PUT to Hue light resource (name: {}):\n{:#?}",
+            mqtt_device.name,
+            result.errors
+        ))
     } else {
-        Ok(result)
+        Ok(Some(result))
     }
 }

@@ -424,7 +424,7 @@ async fn poll_hue_buttons(
 
     // Publish changed mqtt_devices to the broker
     for mqtt_device in changed_mqtt_devices {
-        let publish_result = publish_mqtt_device(&mqtt_client, &settings, &mqtt_device).await;
+        let publish_result = publish_mqtt_device(mqtt_client, settings, &mqtt_device).await;
 
         if let Err(e) = publish_result {
             eprintln!("{:?}", e);

@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use super::rest::{get_hue_state, light::ColorTemperatureData, HueState};
+use super::rest::{light::ColorTemperatureData, HueState};
 use crate::{
-    mqtt_device::{MqttDevice, MqttDeviceBuilder},
-    protocols::{https::HyperHttpsClient, mqtt::MqttClient},
+    mqtt::mqtt_device::{MqttDevice, MqttDeviceBuilder},
+    protocols::mqtt::MqttClient,
     settings::Settings,
 };
 use color_eyre::Result;
@@ -114,46 +114,4 @@ pub async fn publish_hue_state(
     }
 
     Ok(())
-}
-
-/// Periodically poll for hue state and publish to MQTT.
-///
-/// The zigbee network may drop state change messages, and we will never know
-/// about that happening through only the eventsource API.
-///
-/// TODO:
-/// Another perhaps better idea for solving this problem would be:
-///
-/// - Every time we request a light state change for a specific device, keep
-/// listening for events from the eventsource api
-/// - If an "acknowledgement" of the state change arrives from the device, we
-/// know that the bulb has been set to the correct state and we don't need to do
-/// anything else
-/// - If no event is received within say 2 seconds, re-send the state change
-/// request
-pub fn start_hue_state_loop(
-    settings: &Settings,
-    https_client: &HyperHttpsClient,
-    mqtt_client: &MqttClient,
-) {
-    let settings = settings.clone();
-    let https_client = https_client.clone();
-    let mqtt_client = mqtt_client.clone();
-
-    tokio::spawn(async move {
-        loop {
-            let state = get_hue_state(&settings, &https_client).await;
-
-            let result = match state {
-                Ok(state) => publish_hue_state(&settings, &mqtt_client, &state).await,
-                Err(e) => Err(e),
-            };
-
-            if let Err(e) = result {
-                eprintln!("{:?}", e);
-            };
-
-            tokio::time::sleep(std::time::Duration::from_secs(10)).await;
-        }
-    });
 }

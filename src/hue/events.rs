@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use futures::TryStreamExt;
+use futures::StreamExt;
 use tokio::{
     sync::{Notify, RwLock},
     time::Instant,
@@ -47,8 +47,10 @@ pub fn start_hue_events_loop(
         let prev_event_t = prev_event_t.clone();
 
         tokio::spawn(async move {
-            while let Ok(Some(e)) = eventsource_stream.try_next().await {
-                if let eventsource_client::SSE::Event(e) = e {
+            loop {
+                let e = eventsource_stream.next().await;
+
+                if let Some(Ok(eventsource_client::SSE::Event(e))) = e {
                     // Check whether we should be ignoring button events
                     let ignore_buttons = {
                         let prev_event_t = prev_event_t.read().await;

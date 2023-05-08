@@ -9,6 +9,10 @@ let
       "rustfmt-preview"
       "clippy-preview"
     ];
+    targets = [
+      "x86_64-unknown-linux-gnu"
+      "x86_64-unknown-linux-musl"
+    ];
   };
 in
   with nixpkgs;

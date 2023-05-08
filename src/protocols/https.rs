@@ -1,17 +1,41 @@
 use color_eyre::Result;
+use eyre::eyre;
 use hyper::{Request, Uri};
 use serde::{Deserialize, Serialize};
+use tokio_rustls::rustls::{ClientConfig, RootCertStore};
 
 use crate::settings::Settings;
 
-pub type HyperHttpsClient = hyper::Client<hyper_tls::HttpsConnector<hyper::client::HttpConnector>>;
+pub type HyperHttpsClient =
+    hyper::Client<hyper_rustls::HttpsConnector<hyper::client::HttpConnector>>;
+
+// see https://quinn-rs.github.io/quinn/quinn/certificate.html
+struct SkipServerVerification;
+
+impl SkipServerVerification {
+    fn new() -> std::sync::Arc<Self> {
+        std::sync::Arc::new(Self)
+    }
+}
+
+impl tokio_rustls::rustls::client::ServerCertVerifier for SkipServerVerification {
+    fn verify_server_cert(
+        &self,
+        _end_entity: &tokio_rustls::rustls::Certificate,
+        _intermediates: &[tokio_rustls::rustls::Certificate],
+        _server_name: &tokio_rustls::rustls::ServerName,
+        _scts: &mut dyn Iterator<Item = &[u8]>,
+        _ocsp_response: &[u8],
+        _now: std::time::SystemTime,
+    ) -> Result<tokio_rustls::rustls::client::ServerCertVerified, tokio_rustls::rustls::Error> {
+        Ok(tokio_rustls::rustls::client::ServerCertVerified::assertion())
+    }
+}
 
 pub fn mk_hyper_https_client(settings: &Settings) -> Result<HyperHttpsClient> {
     // https://github.com/spietika/restson-rust/pull/20
     let mut http = hyper::client::HttpConnector::new();
     http.enforce_http(false);
-
-    let mut tls_connector_builder = native_tls::TlsConnector::builder();
 
     // This is the Signify CA certificate for Hue bridges, from:
     // https://developers.meethue.com/develop/application-design-guidance/using-https/
@@ -23,23 +47,30 @@ pub fn mk_hyper_https_client(settings: &Settings) -> Result<HyperHttpsClient> {
         None => HUE_CA_CERT.to_vec(),
     };
 
-    let certificate = native_tls::Certificate::from_pem(&cert_bytes)?;
+    let cert_parsed = rustls_pemfile::certs(&mut cert_bytes.as_slice())?
+        .into_iter()
+        .next()
+        .ok_or_else(|| eyre!("Failed to parse certificate"))?;
+    let certificate = tokio_rustls::rustls::Certificate(cert_parsed);
 
-    // Adds the certificate to the set of roots that the connector will trust.
-    // See https://docs.rs/native-tls/0.2.2/native_tls/struct.TlsConnectorBuilder.html#method.add_root_certificate
-    tls_connector_builder.add_root_certificate(certificate);
+    let mut root_store = RootCertStore::empty();
+    root_store.add(&certificate)?;
+
+    let mut client_config = ClientConfig::builder()
+        .with_safe_defaults()
+        .with_root_certificates(root_store)
+        .with_no_client_auth();
 
     // Allow disabling host name verification
     // See https://docs.rs/native-tls/0.2.2/native_tls/struct.TlsConnectorBuilder.html#method.danger_accept_invalid_hostnames
     if let Some(true) = settings.hue_bridge.disable_host_name_verification {
-        tls_connector_builder.danger_accept_invalid_hostnames(true);
+        client_config
+            .dangerous()
+            .set_certificate_verifier(SkipServerVerification::new());
     }
 
-    let tls_connector = tls_connector_builder.build()?;
-    let https = hyper_tls::HttpsConnector::<hyper::client::HttpConnector>::from((
-        http,
-        tls_connector.into(),
-    ));
+    let https =
+        hyper_rustls::HttpsConnector::<hyper::client::HttpConnector>::from((http, client_config));
 
     // Build the hyper client
     let client = hyper::Client::builder().build(https);

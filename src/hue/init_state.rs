@@ -55,7 +55,7 @@ pub fn init_state_to_mqtt_devices(init_state: &HueState) -> HashMap<String, Mqtt
             ));
 
             if let Some(button_event) = &button.button {
-                builder.sensor_value(button_event.last_event.to_string());
+                builder.sensor_value(button_event.is_pressed().to_string());
                 builder.updated(button_event.button_report.updated.clone());
             }
 

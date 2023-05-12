@@ -82,6 +82,13 @@ pub async fn poll_hue_buttons(
                 }
             }
 
+            // Ignore junk data
+            if let Some(button) = &button.button {
+                if button.button_report.updated == "1970-01-01T00:00:00.000Z" {
+                    continue;
+                }
+            }
+
             // Check if button state matches previously seen sensor value
             if let (Some(mqtt_device), Some(button)) = (mqtt_device, &button.button) {
                 match (

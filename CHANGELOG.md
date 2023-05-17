@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/FruitieX/hue-mqtt/compare/v0.2.0...v0.2.1) (2023-05-17)
+
+
+### Bug Fixes
+
+* Handle missing ButtonEventData on buttons ([a95c5f3](https://github.com/FruitieX/hue-mqtt/commit/a95c5f39288a67509e99418530ba4e0e4b910f00))
+
 ## 0.2.0 (2023-05-17)
 
 

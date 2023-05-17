@@ -2,7 +2,10 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:base",
-    "group:allNonMajor"
+    "group:allNonMajor",
+    "github>Turbo87/renovate-config//rust/updateToolchain",
+    ":automergeDigest",
+    ":semanticCommits"
   ],
   "automergeType": "pr",
   "platformAutomerge": true,
@@ -18,5 +21,8 @@
       ],
       "automerge": true
     }
-  ]
+  ],
+  "docker": {
+    "pinDigests": true
+  }
 }

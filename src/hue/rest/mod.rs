@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use self::{
-    button::{get_hue_buttons, ButtonData},
+    button::{get_hue_buttons, ButtonData, ButtonEventData, ButtonReport},
     device::{get_hue_devices, DeviceData},
     light::{get_hue_lights, LightData},
     motion::{get_hue_motion, MotionData},
@@ -38,6 +38,14 @@ pub async fn get_hue_state(settings: &Settings, client: &HyperHttpsClient) -> Re
                     button.last_event = "short_release".to_string();
                     button.button_report.event = "short_release".to_string();
                 }
+            } else {
+                x.button = Some(ButtonEventData {
+                    last_event: "short_release".to_string(),
+                    button_report: ButtonReport {
+                        event: "short_release".to_string(),
+                        updated: "1970-01-01T00:00:00.000Z".to_string(),
+                    },
+                })
             }
 
             x

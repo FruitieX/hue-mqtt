@@ -13,7 +13,7 @@ sensor_topic = "home/sensors/hue/{id}"
 # MQTT topic where light updates will be published
 light_topic = "home/lights/hue/{id}"
 
-# MQTT topic whhere if another client publishes a light update, we will send the
+# MQTT topic where if another client publishes a light update, we will send the
 # received light state to the Hue bridge
 light_topic_set = "home/lights/hue/{id}/set"
 

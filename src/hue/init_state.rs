@@ -2,12 +2,11 @@ use std::collections::HashMap;
 
 use super::rest::{light::ColorTemperatureData, HueState};
 use crate::{
-    mqtt::mqtt_device::{MqttDevice, MqttDeviceBuilder},
+    mqtt::mqtt_device::{Capabilities, Ct, DeviceColor, MqttDevice, MqttDeviceBuilder, Xy},
     protocols::mqtt::MqttClient,
     settings::Settings,
 };
 use color_eyre::Result;
-use palette::{FromColor, Hsv, Yxy};
 use rumqttc::QoS;
 
 pub fn init_state_to_mqtt_devices(init_state: &HueState) -> HashMap<String, MqttDevice> {
@@ -28,15 +27,42 @@ pub fn init_state_to_mqtt_devices(init_state: &HueState) -> HashMap<String, Mqtt
             }
 
             if let Some(color) = &light.color {
-                let mut hsv = Hsv::from_color(Yxy::new(color.xy.x, color.xy.y, 1.0));
-                hsv.value = 1.0;
-                builder.color(hsv);
+                builder.color(DeviceColor::Xy(Xy {
+                    x: color.xy.x,
+                    y: color.xy.y,
+                }));
             }
 
-            if let Some(ColorTemperatureData { mirek: Some(mirek) }) = light.color_temperature {
-                let cct = 1_000_000.0 / mirek;
-                builder.cct(cct);
+            if let Some(ColorTemperatureData {
+                mirek: Some(mirek), ..
+            }) = light.color_temperature
+            {
+                let ct = (1_000_000.0 / mirek) as u16;
+                builder.color(DeviceColor::Ct(Ct { ct }));
             }
+
+            builder.capabilities(Capabilities {
+                ct: light.color_temperature.as_ref().map(|ct| {
+                    let min = ct
+                        .mirek_schema
+                        .as_ref()
+                        .map(|s| s.mirek_minimum)
+                        .unwrap_or(153.0);
+                    let max = ct
+                        .mirek_schema
+                        .as_ref()
+                        .map(|s| s.mirek_maximum)
+                        .unwrap_or(500.0);
+
+                    // min/max being flipped here is intentional, as mirek is
+                    // inversely proportional to ct
+                    let min_ct = (1_000_000.0 / max) as u16;
+                    let max_ct = (1_000_000.0 / min) as u16;
+
+                    min_ct..max_ct
+                }),
+                xy: light.color.is_some(),
+            });
 
             let mqtt_device = builder.build().unwrap();
             mqtt_devices.insert(mqtt_device.id.clone(), mqtt_device);

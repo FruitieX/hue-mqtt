@@ -1,9 +1,8 @@
 use color_eyre::Result;
-use palette::{FromColor, Yxy};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    mqtt::mqtt_device::MqttDevice,
+    mqtt::mqtt_device::{Ct, DeviceColor, MqttDevice, Xy},
     protocols::https::{mk_get_request, mk_put_request, HyperHttpsClient},
     settings::Settings,
 };
@@ -27,8 +26,15 @@ pub struct DimmingData {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct MirekSchema {
+    pub mirek_minimum: f32,
+    pub mirek_maximum: f32
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ColorTemperatureData {
     pub mirek: Option<f32>,
+    pub mirek_schema: Option<MirekSchema>
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -130,14 +136,23 @@ pub async fn put_hue_light(
         dimming: mqtt_device.brightness.map(|brightness| DimmingData {
             brightness: brightness * 100.0,
         }),
-        color_temperature: mqtt_device.cct.map(|cct| ColorTemperatureData {
-            mirek: Some(1_000_000.0 / cct),
+        color_temperature: mqtt_device.color.as_ref().and_then(|color| {
+            if let DeviceColor::Ct(Ct { ct }) = color {
+                Some(ColorTemperatureData {
+                    mirek: Some(1_000_000.0 / *ct as f32),
+                    mirek_schema: None
+                })
+            } else {
+                None
+            }
         }),
-        color: mqtt_device.color.map(|color| -> ColorData {
-            let yxy = Yxy::from_color(color);
-
-            ColorData {
-                xy: XyData { x: yxy.x, y: yxy.y },
+        color: mqtt_device.color.as_ref().and_then(|color| {
+            if let DeviceColor::Xy(Xy { x, y }) = color {
+                Some(ColorData {
+                    xy: XyData { x: *x, y: *y },
+                })
+            } else {
+                None
             }
         }),
         dynamics: mqtt_device.transition_ms.map(|transition_ms| DynamicsData {

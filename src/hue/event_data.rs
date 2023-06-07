@@ -2,11 +2,10 @@ use std::collections::HashMap;
 
 use color_eyre::Result;
 use eyre::eyre;
-use palette::{FromColor, Hsv, Yxy};
 use serde::Deserialize;
 use tokio::sync::RwLock;
 
-use crate::mqtt::mqtt_device::MqttDevice;
+use crate::mqtt::mqtt_device::{Ct, DeviceColor, MqttDevice, Xy};
 
 use super::rest::{
     button::ButtonEventData,
@@ -96,15 +95,15 @@ impl UpdateData {
                 let mut mqtt_device = mqtt_devices.get(&light.id)?.clone();
 
                 if let Some(color) = &light.color {
-                    let mut hsv = Hsv::from_color(Yxy::new(color.xy.x, color.xy.y, 1.0));
-                    hsv.value = 1.0;
-
-                    mqtt_device.color = Some(hsv);
+                    mqtt_device.color = Some(DeviceColor::Xy(Xy {
+                        x: color.xy.x,
+                        y: color.xy.y,
+                    }));
                 }
 
-                if let Some(ColorTemperatureData { mirek: Some(mirek) }) = light.color_temperature {
-                    let cct = 1_000_000.0 / mirek;
-                    mqtt_device.cct = Some(cct);
+                if let Some(ColorTemperatureData { mirek: Some(mirek), .. }) = light.color_temperature {
+                    let ct = (1_000_000.0 / mirek) as u16;
+                    mqtt_device.color = Some(DeviceColor::Ct(Ct { ct }));
                 }
 
                 if let Some(on) = &light.on {

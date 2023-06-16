@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.4.0](https://github.com/FruitieX/hue-mqtt/compare/v0.2.1...v0.4.0) (2023-06-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* The color field structure has changed slightly to accommodate more color modes.
+
+### Features
+
+* device capabilities ([7eedadd](https://github.com/FruitieX/hue-mqtt/commit/7eedadd7dbb28c0b6b493cc22965a38ec80d040a))
+
+
+### Bug Fixes
+
+* **deps:** update all non-major dependencies ([0e47fb7](https://github.com/FruitieX/hue-mqtt/commit/0e47fb7d0596add35697ea5d93a2c2add9d1b29b))
+* **deps:** update rust crate palette to 0.7.2 ([cd6aad4](https://github.com/FruitieX/hue-mqtt/commit/cd6aad4b268c404cac3d35c6b91e1be85217e0a8))
+* **deps:** update rust crate tokio to 1.28.2 ([c3d2cd5](https://github.com/FruitieX/hue-mqtt/commit/c3d2cd51cad40a5142a0ba6d98c0626f58a0ebd7))
+
+
+### Miscellaneous Chores
+
+* release 0.4.0 ([9ad288d](https://github.com/FruitieX/hue-mqtt/commit/9ad288d131fd18eed8e54909a4435664f6d62455))
+
 ## [0.2.1](https://github.com/FruitieX/hue-mqtt/compare/v0.2.0...v0.2.1) (2023-05-17)
 
 

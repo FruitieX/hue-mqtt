@@ -101,7 +101,10 @@ impl UpdateData {
                     }));
                 }
 
-                if let Some(ColorTemperatureData { mirek: Some(mirek), .. }) = light.color_temperature {
+                if let Some(ColorTemperatureData {
+                    mirek: Some(mirek), ..
+                }) = light.color_temperature
+                {
                     let ct = (1_000_000.0 / mirek) as u16;
                     mqtt_device.color = Some(DeviceColor::Ct(Ct { ct }));
                 }

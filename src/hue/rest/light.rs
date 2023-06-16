@@ -28,13 +28,13 @@ pub struct DimmingData {
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct MirekSchema {
     pub mirek_minimum: f32,
-    pub mirek_maximum: f32
+    pub mirek_maximum: f32,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ColorTemperatureData {
     pub mirek: Option<f32>,
-    pub mirek_schema: Option<MirekSchema>
+    pub mirek_schema: Option<MirekSchema>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -140,7 +140,7 @@ pub async fn put_hue_light(
             if let DeviceColor::Ct(Ct { ct }) = color {
                 Some(ColorTemperatureData {
                     mirek: Some(1_000_000.0 / *ct as f32),
-                    mirek_schema: None
+                    mirek_schema: None,
                 })
             } else {
                 None

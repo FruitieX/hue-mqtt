@@ -57,12 +57,18 @@ pub async fn mk_mqtt_client(settings: &Settings) -> Result<MqttClient> {
 
         task::spawn(async move {
             loop {
-                while let Ok(event) = eventloop.poll().await {
-                    let res = handle_incoming_mqtt_event(event, &mqtt_client).await;
+                let notification = eventloop.poll().await;
 
-                    if let Err(e) = res {
-                        eprintln!("Error while handling MQTT event: {:?}", e);
-                    }
+                let res = (|| async {
+                    handle_incoming_mqtt_event(notification?, &mqtt_client).await?;
+
+                    Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
+                })()
+                .await;
+
+                if let Err(e) = res {
+                    eprintln!("MQTT error: {:?}", e);
+                    tokio::time::sleep(Duration::from_secs(1)).await;
                 }
             }
         });

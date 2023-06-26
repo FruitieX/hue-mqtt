@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.1](https://github.com/FruitieX/hue-mqtt/compare/v0.4.0...v0.4.1) (2023-06-26)
+
+
+### Bug Fixes
+
+* attempt reconnecting to mqtt after failure ([cf41e09](https://github.com/FruitieX/hue-mqtt/commit/cf41e096b49e3fa73185ba74f25d993cebb43975))
+* **deps:** update rust crate serde_json to 1.0.99 ([c7d1794](https://github.com/FruitieX/hue-mqtt/commit/c7d17941ac045755a6ea670ffced897a3f58caab))
+
 ## [0.4.0](https://github.com/FruitieX/hue-mqtt/compare/v0.2.1...v0.4.0) (2023-06-16)
 
 

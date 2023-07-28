@@ -13,15 +13,31 @@ pub struct Metadata {
     pub control_id: u32,
 }
 
+fn default_event() -> String {
+    "short_release".to_string()
+}
+
 #[derive(Deserialize, Debug, Clone)]
 pub struct ButtonReport {
     pub event: String,
     pub updated: String,
 }
 
+impl Default for ButtonReport {
+    fn default() -> Self {
+        Self {
+            event: default_event(),
+            updated: "1970-01-01T00:00:00.000Z".to_string(),
+        }
+    }
+}
+
 #[derive(Deserialize, Debug, Clone)]
 pub struct ButtonEventData {
+    #[serde(default = "default_event")]
     pub last_event: String,
+
+    #[serde(default)]
     pub button_report: ButtonReport,
 }
 

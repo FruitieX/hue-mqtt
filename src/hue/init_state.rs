@@ -111,6 +111,46 @@ pub fn init_state_to_mqtt_devices(init_state: &HueState) -> HashMap<String, Mqtt
         }
     }
 
+    for temperature in init_state.temperature.values() {
+        let device = init_state.devices.get(&temperature.owner.rid);
+
+        if let Some(device) = device {
+            let mut builder = MqttDeviceBuilder::default();
+
+            builder
+                .id(temperature.id.clone())
+                .name(format!("{} {}", device.metadata.name.clone(), " temperature".to_string()));
+
+            if let Some(temperature_event) = &temperature.temperature {
+                builder.sensor_value(temperature_event.temperature.to_string());
+            }
+
+            let mqtt_device = builder.build().unwrap();
+
+            mqtt_devices.insert(mqtt_device.id.clone(), mqtt_device);
+        }
+    }
+
+    for light_level in init_state.light_level.values() {
+        let device = init_state.devices.get(&light_level.owner.rid);
+
+        if let Some(device) = device {
+            let mut builder = MqttDeviceBuilder::default();
+
+            builder
+                .id(light_level.id.clone())
+                .name(format!("{} {}", device.metadata.name.clone(), " light level".to_string()));
+
+            if let Some(light_level_event) = &light_level.light_level {
+                builder.sensor_value(light_level_event.light_level.to_string());
+            }
+
+            let mqtt_device = builder.build().unwrap();
+
+            mqtt_devices.insert(mqtt_device.id.clone(), mqtt_device);
+        }
+    }
+
     mqtt_devices
 }
 

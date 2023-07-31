@@ -57,7 +57,7 @@ struct LightLevelData {
 #[derive(Deserialize, Debug, Clone)]
 struct LightLevelUpdateData {
     id: String,
-    light_level: LightLevelData,
+    light: LightLevelData,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -123,7 +123,7 @@ impl UpdateData {
             UpdateData::LightLevel(light_level) => {
                 let mut mqtt_device = mqtt_devices.get(&light_level.id)?.clone();
 
-                mqtt_device.sensor_value = Some(light_level.light_level.light_level.to_string());
+                mqtt_device.sensor_value = Some(light_level.light.light_level.to_string());
 
                 return Some(mqtt_device);
             }

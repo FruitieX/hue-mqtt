@@ -19,7 +19,7 @@ pub struct LightLevelData {
     pub id_v1: String,
     pub owner: Owner,
     pub enabled: bool,
-    pub light_level: Option<LightLevelEventData>,
+    pub light: Option<LightLevelEventData>,
 }
 
 #[derive(Deserialize, Debug, Clone)]

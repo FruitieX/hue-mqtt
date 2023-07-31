@@ -4,9 +4,9 @@ use self::{
     button::{get_hue_buttons, ButtonData, ButtonEventData, ButtonReport},
     device::{get_hue_devices, DeviceData},
     light::{get_hue_lights, LightData},
+    light_level::{get_hue_light_level, LightLevelData},
     motion::{get_hue_motion, MotionData},
     temperature::{get_hue_temperature, TemperatureData},
-    light_level::{get_hue_light_level, LightLevelData},
 };
 use crate::{protocols::https::HyperHttpsClient, settings::Settings};
 use color_eyre::Result;
@@ -15,9 +15,9 @@ pub mod button;
 pub mod common;
 pub mod device;
 pub mod light;
+pub mod light_level;
 pub mod motion;
 pub mod temperature;
-pub mod light_level;
 
 #[derive(Clone, Debug)]
 pub struct HueState {

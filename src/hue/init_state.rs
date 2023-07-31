@@ -117,9 +117,11 @@ pub fn init_state_to_mqtt_devices(init_state: &HueState) -> HashMap<String, Mqtt
         if let Some(device) = device {
             let mut builder = MqttDeviceBuilder::default();
 
-            builder
-                .id(temperature.id.clone())
-                .name(format!("{} {}", device.metadata.name.clone(), " temperature".to_string()));
+            builder.id(temperature.id.clone()).name(format!(
+                "{} {}",
+                device.metadata.name.clone(),
+                " temperature"
+            ));
 
             if let Some(temperature_event) = &temperature.temperature {
                 builder.sensor_value(temperature_event.temperature.to_string());
@@ -137,9 +139,11 @@ pub fn init_state_to_mqtt_devices(init_state: &HueState) -> HashMap<String, Mqtt
         if let Some(device) = device {
             let mut builder = MqttDeviceBuilder::default();
 
-            builder
-                .id(light_level.id.clone())
-                .name(format!("{} {}", device.metadata.name.clone(), " light level".to_string()));
+            builder.id(light_level.id.clone()).name(format!(
+                "{} {}",
+                device.metadata.name.clone(),
+                " light level"
+            ));
 
             if let Some(light_level_event) = &light_level.light_level {
                 builder.sensor_value(light_level_event.light_level.to_string());

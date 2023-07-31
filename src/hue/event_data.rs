@@ -70,7 +70,7 @@ enum UpdateData {
     Light(LightUpdateData),
     Motion(MotionUpdateData),
     Temperature(TemperatureUpdateData),
-    LightLevel(LightLevelUpdateData),         // Light sensor update
+    LightLevel(LightLevelUpdateData),
 
     // Ignored updates
     DevicePower,        // Battery level update

@@ -4,7 +4,9 @@ use self::{
     button::{get_hue_buttons, ButtonData, ButtonEventData, ButtonReport},
     device::{get_hue_devices, DeviceData},
     light::{get_hue_lights, LightData},
+    light_level::{get_hue_light_level, LightLevelData},
     motion::{get_hue_motion, MotionData},
+    temperature::{get_hue_temperature, TemperatureData},
 };
 use crate::{protocols::https::HyperHttpsClient, settings::Settings};
 use color_eyre::Result;
@@ -13,7 +15,9 @@ pub mod button;
 pub mod common;
 pub mod device;
 pub mod light;
+pub mod light_level;
 pub mod motion;
+pub mod temperature;
 
 #[derive(Clone, Debug)]
 pub struct HueState {
@@ -21,6 +25,8 @@ pub struct HueState {
     pub buttons: HashMap<String, ButtonData>,
     pub lights: HashMap<String, LightData>,
     pub motion: HashMap<String, MotionData>,
+    pub temperature: HashMap<String, TemperatureData>,
+    pub light_level: HashMap<String, LightLevelData>,
 }
 
 pub async fn get_hue_state(settings: &Settings, client: &HyperHttpsClient) -> Result<HueState> {
@@ -28,6 +34,8 @@ pub async fn get_hue_state(settings: &Settings, client: &HyperHttpsClient) -> Re
     let buttons = get_hue_buttons(settings, client).await?;
     let lights = get_hue_lights(settings, client).await?;
     let motion = get_hue_motion(settings, client).await?;
+    let temperature = get_hue_temperature(settings, client).await?;
+    let light_level = get_hue_light_level(settings, client).await?;
 
     // Fix some data quality issues
     let buttons: Vec<ButtonData> = buttons
@@ -58,11 +66,15 @@ pub async fn get_hue_state(settings: &Settings, client: &HyperHttpsClient) -> Re
     let buttons = buttons.into_iter().map(|x| (x.id.clone(), x)).collect();
     let lights = lights.into_iter().map(|x| (x.id.clone(), x)).collect();
     let motion = motion.into_iter().map(|x| (x.id.clone(), x)).collect();
+    let temperature = temperature.into_iter().map(|x| (x.id.clone(), x)).collect();
+    let light_level = light_level.into_iter().map(|x| (x.id.clone(), x)).collect();
 
     Ok(HueState {
         devices,
         buttons,
         lights,
         motion,
+        temperature,
+        light_level,
     })
 }

@@ -39,6 +39,28 @@ struct MotionUpdateData {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+struct TemperatureData {
+    temperature: f64,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+struct TemperatureUpdateData {
+    id: String,
+    temperature: TemperatureData,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+struct LightLevelData {
+    light_level: f64,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+struct LightLevelUpdateData {
+    id: String,
+    light: LightLevelData,
+}
+
+#[derive(Deserialize, Debug, Clone)]
 struct DevicePowerData {}
 
 #[derive(Deserialize, Debug, Clone)]
@@ -47,10 +69,10 @@ enum UpdateData {
     Button(ButtonUpdateData),
     Light(LightUpdateData),
     Motion(MotionUpdateData),
+    Temperature(TemperatureUpdateData),
+    LightLevel(LightLevelUpdateData),
 
     // Ignored updates
-    Temperature,        // Temperature sensor update
-    LightLevel,         // Light sensor update
     DevicePower,        // Battery level update
     GroupedLight,       // Light groups update
     ZigbeeConnectivity, // Connectivity issue update
@@ -88,6 +110,20 @@ impl UpdateData {
                 let mut mqtt_device = mqtt_devices.get(&motion.id)?.clone();
 
                 mqtt_device.sensor_value = Some(motion.motion.motion.to_string());
+
+                return Some(mqtt_device);
+            }
+            UpdateData::Temperature(temperature) => {
+                let mut mqtt_device = mqtt_devices.get(&temperature.id)?.clone();
+
+                mqtt_device.sensor_value = Some(temperature.temperature.temperature.to_string());
+
+                return Some(mqtt_device);
+            }
+            UpdateData::LightLevel(light_level) => {
+                let mut mqtt_device = mqtt_devices.get(&light_level.id)?.clone();
+
+                mqtt_device.sensor_value = Some(light_level.light.light_level.to_string());
 
                 return Some(mqtt_device);
             }
@@ -204,6 +240,8 @@ pub async fn handle_incoming_hue_events(
                     .filter(|data| {
                         (matches!(data, UpdateData::Button(_)) && !ignore_buttons)
                             | matches!(data, UpdateData::Motion(_))
+                            | matches!(data, UpdateData::Temperature(_))
+                            | matches!(data, UpdateData::LightLevel(_))
                     })
                     .filter(|data| match data {
                         UpdateData::Button(button) => {

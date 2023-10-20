@@ -1,3 +1,5 @@
+#![allow(clippy::redundant_closure_call)]
+
 use color_eyre::Result;
 use rand::{distributions::Alphanumeric, Rng};
 use rumqttc::{AsyncClient, MqttOptions, QoS};

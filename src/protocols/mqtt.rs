@@ -2,7 +2,7 @@
 
 use color_eyre::Result;
 use rand::{distributions::Alphanumeric, Rng};
-use rumqttc::{AsyncClient, MqttOptions, QoS};
+use rumqttc::{AsyncClient, MqttOptions};
 use std::{collections::VecDeque, sync::Arc, time::Duration};
 use tokio::{
     sync::{Notify, RwLock},
@@ -41,13 +41,6 @@ pub async fn mk_mqtt_client(settings: &Settings) -> Result<MqttClient> {
     let unhandled_messages: UnhandledMessages = Default::default();
     let notify = Arc::new(Notify::new());
 
-    client
-        .subscribe(
-            settings.mqtt.light_topic_set.replace("{id}", "+"),
-            QoS::AtMostOnce,
-        )
-        .await?;
-
     let mqtt_client = MqttClient {
         client,
         unhandled_messages,
@@ -56,13 +49,14 @@ pub async fn mk_mqtt_client(settings: &Settings) -> Result<MqttClient> {
 
     {
         let mqtt_client = mqtt_client.clone();
+        let settings = settings.clone();
 
         task::spawn(async move {
             loop {
                 let notification = eventloop.poll().await;
 
                 let res = (|| async {
-                    handle_incoming_mqtt_event(notification?, &mqtt_client).await?;
+                    handle_incoming_mqtt_event(notification?, &mqtt_client, &settings).await?;
 
                     Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
                 })()

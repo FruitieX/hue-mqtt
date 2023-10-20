@@ -1,5 +1,6 @@
 use color_eyre::Result;
 use eyre::eyre;
+use rumqttc::QoS;
 
 use crate::{
     hue::rest::light::{put_hue_light, PutResponse},
@@ -11,19 +12,32 @@ use crate::{
 pub async fn handle_incoming_mqtt_event(
     event: rumqttc::Event,
     mqtt_client: &MqttClient,
+    settings: &Settings,
 ) -> Result<()> {
-    if let rumqttc::Event::Incoming(rumqttc::Packet::Publish(msg)) = event {
-        let device: MqttDevice = serde_json::from_slice(&msg.payload)?;
+    match event {
+        rumqttc::Event::Incoming(rumqttc::Packet::ConnAck(_)) => {
+            mqtt_client
+                .client
+                .subscribe(
+                    settings.mqtt.light_topic_set.replace("{id}", "+"),
+                    QoS::AtMostOnce,
+                )
+                .await?;
+        }
+        rumqttc::Event::Incoming(rumqttc::Packet::Publish(msg)) => {
+            let device: MqttDevice = serde_json::from_slice(&msg.payload)?;
 
-        // Push device update to the unhandled messages
-        // queue, removing any existing unhandled messages
-        // for the same device.
-        let mut unhandled_messages = mqtt_client.unhandled_messages.write().await;
-        unhandled_messages.retain(|d: &MqttDevice| d.id != device.id);
-        unhandled_messages.push_back(device);
+            // Push device update to the unhandled messages
+            // queue, removing any existing unhandled messages
+            // for the same device.
+            let mut unhandled_messages = mqtt_client.unhandled_messages.write().await;
+            unhandled_messages.retain(|d: &MqttDevice| d.id != device.id);
+            unhandled_messages.push_back(device);
 
-        // Notify Hue bridge communication task that there are new messages
-        mqtt_client.notify.notify_one();
+            // Notify Hue bridge communication task that there are new messages
+            mqtt_client.notify.notify_one();
+        }
+        _ => {}
     }
 
     Ok(())

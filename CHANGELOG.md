@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.5.0](https://github.com/FruitieX/hue-mqtt/compare/v0.4.2...v0.5.0) (2023-10-20)
+
+
+### Features
+
+* Adds support for hue `temperature` and `light_level` sensors ([#59](https://github.com/FruitieX/hue-mqtt/issues/59)) ([75124c5](https://github.com/FruitieX/hue-mqtt/commit/75124c5cc7e882e78bcbfa5a0ddbdc3fdce6a261))
+
+
+### Bug Fixes
+
+* **deps:** update all non-major dependencies ([ad175f5](https://github.com/FruitieX/hue-mqtt/commit/ad175f509ff2837828ff9afc59635746b5a7c328))
+* **deps:** update rust crate palette to 0.7.3 ([28615b5](https://github.com/FruitieX/hue-mqtt/commit/28615b5bd95f6fae4dad108fe2571b5ee20722c5))
+* **deps:** update rust crate serde to 1.0.178 ([c11967d](https://github.com/FruitieX/hue-mqtt/commit/c11967d85b8f52595eaa7396c0f0e3f7d2bcf4be))
+* **deps:** update rust crate serde to 1.0.179 ([72e098a](https://github.com/FruitieX/hue-mqtt/commit/72e098a6608d4ddc050ade63c79d5c34ff98fd6e))
+* **deps:** update rust crate serde to 1.0.180 ([a1841d1](https://github.com/FruitieX/hue-mqtt/commit/a1841d17c928867aa50004def574a6ad216ae43c))
+* **deps:** update rust crate serde to 1.0.181 ([3639f68](https://github.com/FruitieX/hue-mqtt/commit/3639f680886f1ba381759cf65b1b21053f08b2b3))
+* **deps:** update rust crate serde to 1.0.182 ([be3873c](https://github.com/FruitieX/hue-mqtt/commit/be3873c4dc3778a380c3d38e6063a67e32e7e18b))
+* **deps:** update rust crate serde to 1.0.183 ([f81f6e3](https://github.com/FruitieX/hue-mqtt/commit/f81f6e35d74efc08bf4cb4c5df78ea267f01e712))
+* **deps:** update rust crate serde to 1.0.185 ([766fc69](https://github.com/FruitieX/hue-mqtt/commit/766fc69dc39344d2a2d302ae65be31d8e1a5ea8a))
+* **deps:** update rust crate serde to 1.0.186 ([eee1fe8](https://github.com/FruitieX/hue-mqtt/commit/eee1fe8eed6992597260ff3fbb4f9e6bc188fe43))
+* **deps:** update rust crate serde_json to 1.0.105 ([1fd36d2](https://github.com/FruitieX/hue-mqtt/commit/1fd36d25e347f1d625a4ad1cd7cc0305114d48cf))
+* **deps:** update rust crate tokio to 1.30.0 ([e81a68e](https://github.com/FruitieX/hue-mqtt/commit/e81a68e47fb72491efe1aefaf240cbbb901d3a37))
+* **deps:** update rust crate tokio to 1.31.0 ([f0cd15d](https://github.com/FruitieX/hue-mqtt/commit/f0cd15df0ef80c7a3e810e48a58d13b58429f83f))
+* **deps:** update rust crate tokio to 1.32.0 ([6416f7d](https://github.com/FruitieX/hue-mqtt/commit/6416f7de7e63cd6baf0e5a997a3a14708aebcc42))
+* MQTT client re-subscribes on reconnect ([da984b4](https://github.com/FruitieX/hue-mqtt/commit/da984b44761134145705024bede28920f605d57b))
+
 ## [0.4.2](https://github.com/FruitieX/hue-mqtt/compare/v0.4.1...v0.4.2) (2023-07-28)
 
 

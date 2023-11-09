@@ -17,7 +17,7 @@ hyper-rustls = "=0.24.2"
 palette = { version = "=0.7.3", features = ["serializing"] }
 rand = "=0.8.5"
 rumqttc = "=0.23.0"
-rustls-pemfile = "=1.0.3"
+rustls-pemfile = "=1.0.4"
 serde = { version = "=1.0.192", features = ["derive"] }
 serde_json = "=1.0.108"
 serde_path_to_error = "=0.1.14"

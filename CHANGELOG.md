@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.5.1](https://github.com/FruitieX/hue-mqtt/compare/v0.5.0...v0.5.1) (2023-11-30)
+
+
+### Bug Fixes
+
+* **deps:** update rust crate config to v0.13.4 ([f246116](https://github.com/FruitieX/hue-mqtt/commit/f246116f60f2edcd18747a3eb12cea27e24a37a6))
+* **deps:** update rust crate eventsource-client to v0.12.0 ([c15c73c](https://github.com/FruitieX/hue-mqtt/commit/c15c73c0f633612984ef694562be5b40e81a07ec))
+* **deps:** update rust crate eyre to v0.6.9 ([4d20714](https://github.com/FruitieX/hue-mqtt/commit/4d20714ff3b50f431cddceec07dd3b8794cc07a2))
+* **deps:** update rust crate futures to v0.3.29 ([d789573](https://github.com/FruitieX/hue-mqtt/commit/d7895738c8177e9eae92fedf7f7a89f6101dce46))
+* **deps:** update rust crate hyper-rustls to v0.24.2 ([3dd3555](https://github.com/FruitieX/hue-mqtt/commit/3dd355561818c8cf5370ea2afffd7b2b0ae3f813))
+* **deps:** update rust crate rustls-pemfile to v1.0.4 ([4e2c2fe](https://github.com/FruitieX/hue-mqtt/commit/4e2c2fe013246184f36aec41013f4fc25e1088bf))
+* **deps:** update rust crate serde to 1.0.190 ([99c2f71](https://github.com/FruitieX/hue-mqtt/commit/99c2f7114704ca594614f01b75a9c5c5f66c3308))
+* **deps:** update rust crate serde to v1.0.192 ([b0372a1](https://github.com/FruitieX/hue-mqtt/commit/b0372a1bafcef4a1414ccc97a6bc060637edfdc2))
+* **deps:** update rust crate serde to v1.0.193 ([5046e92](https://github.com/FruitieX/hue-mqtt/commit/5046e92a27f40b071079d262f58914543ef3c665))
+* **deps:** update rust crate serde_json to v1.0.108 ([c4b07c8](https://github.com/FruitieX/hue-mqtt/commit/c4b07c8f245ae93f56f6dce8bfd96a63c30ac372))
+* **deps:** update rust crate tokio to v1.34.0 ([688abd7](https://github.com/FruitieX/hue-mqtt/commit/688abd7acb81e89a457f8f82be29a7a7029cc501))
+
 ## [0.5.0](https://github.com/FruitieX/hue-mqtt/compare/v0.4.2...v0.5.0) (2023-10-20)
 
 

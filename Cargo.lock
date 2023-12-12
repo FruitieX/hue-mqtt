@@ -288,9 +288,9 @@ checksum = "5443807d6dff69373d433ab9ef5378ad8df50ca6298caf15de6e52e24aaf54d5"
 
 [[package]]
 name = "eventsource-client"
-version = "0.12.0"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5492fed9eceb9c179dbbcc72da9b6d71812acfb5ab6385760d4d2741c37c7da6"
+checksum = "d9f7e11631634fe6bfe88ea8f8ed42aefcd6eb348af37eeb9a48e2704b3aed2f"
 dependencies = [
  "futures",
  "hyper",

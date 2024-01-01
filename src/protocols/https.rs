@@ -2,14 +2,16 @@ use color_eyre::Result;
 use eyre::eyre;
 use hyper::{Request, Uri};
 use serde::{Deserialize, Serialize};
-use tokio_rustls::rustls::{ClientConfig, RootCertStore};
+use tokio_rustls::rustls::{
+    client::danger::ServerCertVerified,
+    pki_types::{CertificateDer, ServerName, UnixTime},
+    Error, RootCertStore, ClientConfig,
+};
 
 use crate::settings::Settings;
 
-pub type HyperHttpsClient =
-    hyper::Client<hyper_rustls::HttpsConnector<hyper::client::HttpConnector>>;
-
 // see https://quinn-rs.github.io/quinn/quinn/certificate.html
+#[derive(Debug)]
 struct SkipServerVerification;
 
 impl SkipServerVerification {
@@ -18,24 +20,50 @@ impl SkipServerVerification {
     }
 }
 
-impl tokio_rustls::rustls::client::ServerCertVerifier for SkipServerVerification {
+impl tokio_rustls::rustls::client::danger::ServerCertVerifier for SkipServerVerification {
     fn verify_server_cert(
         &self,
-        _end_entity: &tokio_rustls::rustls::Certificate,
-        _intermediates: &[tokio_rustls::rustls::Certificate],
-        _server_name: &tokio_rustls::rustls::ServerName,
-        _scts: &mut dyn Iterator<Item = &[u8]>,
+        end_entity: &CertificateDer<'_>,
+        intermediates: &[CertificateDer<'_>],
+        server_name: &ServerName<'_>,
         _ocsp_response: &[u8],
-        _now: std::time::SystemTime,
-    ) -> Result<tokio_rustls::rustls::client::ServerCertVerified, tokio_rustls::rustls::Error> {
-        Ok(tokio_rustls::rustls::client::ServerCertVerified::assertion())
+        _now: UnixTime,
+    ) -> Result<ServerCertVerified, Error> {
+        Ok(ServerCertVerified::assertion())
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &tokio_rustls::rustls::DigitallySignedStruct,
+    ) -> std::prelude::v1::Result<
+        tokio_rustls::rustls::client::danger::HandshakeSignatureValid,
+        Error,
+    > {
+        todo!()
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &tokio_rustls::rustls::DigitallySignedStruct,
+    ) -> std::prelude::v1::Result<
+        tokio_rustls::rustls::client::danger::HandshakeSignatureValid,
+        Error,
+    > {
+        todo!()
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<tokio_rustls::rustls::SignatureScheme> {
+        todo!()
     }
 }
 
 pub fn mk_hyper_https_client(settings: &Settings) -> Result<HyperHttpsClient> {
     // https://github.com/spietika/restson-rust/pull/20
-    let mut http = hyper::client::HttpConnector::new();
-    http.enforce_http(false);
+    let mut http = hyper::client::conn::http1::Builder::new();
 
     // This is the Signify CA certificate for Hue bridges, from:
     // https://developers.meethue.com/develop/application-design-guidance/using-https/
@@ -47,17 +75,15 @@ pub fn mk_hyper_https_client(settings: &Settings) -> Result<HyperHttpsClient> {
         None => HUE_CA_CERT.to_vec(),
     };
 
-    let cert_parsed = rustls_pemfile::certs(&mut cert_bytes.as_slice())?
+    let cert_parsed = rustls_pemfile::certs(&mut cert_bytes.as_slice())
         .into_iter()
         .next()
-        .ok_or_else(|| eyre!("Failed to parse certificate"))?;
-    let certificate = tokio_rustls::rustls::Certificate(cert_parsed);
+        .ok_or_else(|| eyre!("Failed to parse certificate"))??;
 
     let mut root_store = RootCertStore::empty();
-    root_store.add(&certificate)?;
+    root_store.add(cert_parsed)?;
 
     let mut client_config = ClientConfig::builder()
-        .with_safe_defaults()
         .with_root_certificates(root_store)
         .with_no_client_auth();
 
@@ -70,7 +96,8 @@ pub fn mk_hyper_https_client(settings: &Settings) -> Result<HyperHttpsClient> {
     }
 
     let https =
-        hyper_rustls::HttpsConnector::<hyper::client::HttpConnector>::from((http, client_config));
+        hyper_rustls::HttpsConnectorBuilder::new().with_tls_config(client_config).https_or_http().enable_http1().build();
+        //<hyper::client::conn::http1::Builder>::from((http, client_config));
 
     // Build the hyper client
     let client = hyper::Client::builder().build(https);

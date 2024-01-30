@@ -1,5 +1,6 @@
-use std::{sync::Arc, time::Duration};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
+use eyre::{OptionExt, Result};
 use futures::StreamExt;
 use tokio::{
     sync::{Notify, RwLock},
@@ -7,7 +8,7 @@ use tokio::{
 };
 
 use crate::{
-    mqtt::mqtt_device::publish_mqtt_device,
+    mqtt::mqtt_device::{publish_mqtt_device, MqttDevice},
     protocols::{eventsource::mk_eventsource_stream, https::HyperHttpsClient, mqtt::MqttClient},
     settings::Settings,
 };
@@ -16,6 +17,61 @@ use super::{
     event_data::handle_incoming_hue_events, init_state::init_state_to_mqtt_devices,
     polling::poll_hue_buttons, rest::HueState,
 };
+
+pub async fn eventsource_loop(
+    settings: &Settings,
+    mqtt_client: &MqttClient,
+    https_client: &HyperHttpsClient,
+    prev_event_t: &Arc<RwLock<Option<Instant>>>,
+    mqtt_devices: &Arc<RwLock<HashMap<String, MqttDevice>>>,
+    notify: &Arc<Notify>,
+) -> Result<()> {
+    let mut eventsource_stream = mk_eventsource_stream(settings, https_client)?;
+
+    loop {
+        let e = eventsource_stream
+            .next()
+            .await
+            .ok_or_eyre("Error while opening eventsource stream")??;
+
+        let eventsource_client::SSE::Event(e) = e else {
+            continue;
+        };
+
+        // Check whether we should be ignoring button events
+        let ignore_buttons = {
+            let prev_event_t = prev_event_t.read().await;
+            prev_event_t
+                .map(|prev_event_t| prev_event_t.elapsed() < Duration::from_millis(1500))
+                .unwrap_or(false)
+        };
+
+        let result = handle_incoming_hue_events(mqtt_devices, e.data, ignore_buttons).await;
+
+        {
+            let mut prev_event_t = prev_event_t.write().await;
+            *prev_event_t = Some(Instant::now());
+        }
+
+        // Send a notification to the polling task that an event has just arrived
+        notify.notify_one();
+
+        match result {
+            Ok(mqtt_devices) => {
+                for mqtt_device in mqtt_devices {
+                    let result = publish_mqtt_device(mqtt_client, settings, &mqtt_device).await;
+
+                    if let Err(e) = result {
+                        eprintln!("{:?}", e);
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("{:?}", e);
+            }
+        }
+    }
+}
 
 pub fn start_hue_events_loop(
     settings: &Settings,
@@ -48,74 +104,19 @@ pub fn start_hue_events_loop(
 
         tokio::spawn(async move {
             loop {
-                let eventsource_stream = mk_eventsource_stream(&settings, &https_client);
+                let result = eventsource_loop(
+                    &settings,
+                    &mqtt_client,
+                    &https_client,
+                    &prev_event_t,
+                    &mqtt_devices,
+                    &notify,
+                )
+                .await;
 
-                let Ok(mut eventsource_stream) = eventsource_stream else {
-                    eprintln!("Failed to create eventsource stream. Retrying in 5 seconds...");
+                if let Err(e) = result {
+                    eprintln!("Error encountered in eventsource loop: {:?}", e);
                     tokio::time::sleep(Duration::from_secs(5)).await;
-                    continue;
-                };
-
-                loop {
-                    let e = eventsource_stream.next().await;
-
-                    match e {
-                        Some(Ok(eventsource_client::SSE::Event(e))) => {
-                            // Check whether we should be ignoring button events
-                            let ignore_buttons = {
-                                let prev_event_t = prev_event_t.read().await;
-                                prev_event_t
-                                    .map(|prev_event_t| {
-                                        prev_event_t.elapsed() < Duration::from_millis(1500)
-                                    })
-                                    .unwrap_or(false)
-                            };
-
-                            let result =
-                                handle_incoming_hue_events(&mqtt_devices, e.data, ignore_buttons)
-                                    .await;
-
-                            {
-                                let mut prev_event_t = prev_event_t.write().await;
-                                *prev_event_t = Some(Instant::now());
-                            }
-
-                            // Send a notification to the polling task that an event has just arrived
-                            notify.notify_one();
-
-                            match result {
-                                Ok(mqtt_devices) => {
-                                    for mqtt_device in mqtt_devices {
-                                        let result = publish_mqtt_device(
-                                            &mqtt_client,
-                                            &settings,
-                                            &mqtt_device,
-                                        )
-                                        .await;
-
-                                        if let Err(e) = result {
-                                            eprintln!("{:?}", e);
-                                        }
-                                    }
-                                }
-                                Err(e) => {
-                                    eprintln!("{:?}", e);
-                                }
-                            }
-                        }
-                        Some(Err(e)) => {
-                            eprintln!("Error while receiving from eventsource stream. Reconnecting in 5 seconds...");
-                            eprintln!("{:?}", e);
-                            tokio::time::sleep(Duration::from_secs(5)).await;
-                            break;
-                        }
-                        None => {
-                            eprintln!("End of stream while receiving from eventsource stream. Reconnecting in 5 seconds...");
-                            tokio::time::sleep(Duration::from_secs(5)).await;
-                            break;
-                        }
-                        _ => {}
-                    }
                 }
             }
         });

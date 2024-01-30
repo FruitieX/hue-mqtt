@@ -38,7 +38,7 @@ pub fn mk_eventsource_stream(
     .unwrap()
     .reconnect(
         es::ReconnectOptions::reconnect(true)
-            .retry_initial(false)
+            .retry_initial(true)
             .delay(Duration::from_secs(2))
             .backoff_factor(2)
             .delay_max(Duration::from_secs(60))

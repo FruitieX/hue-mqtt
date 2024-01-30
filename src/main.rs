@@ -6,6 +6,9 @@ use mqtt::events::start_mqtt_events_loop;
 use protocols::https::mk_hyper_https_client;
 use protocols::mqtt::mk_mqtt_client;
 
+#[macro_use]
+extern crate eyre;
+
 use crate::settings::read_settings;
 
 mod hue;

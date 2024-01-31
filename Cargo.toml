@@ -10,7 +10,7 @@ color-eyre = "=0.6.2"
 config = "=0.13.4"
 derive_builder = "=0.13.0"
 eventsource-client = "=0.12.2"
-eyre = "=0.6.11"
+eyre = "=0.6.12"
 futures = "=0.3.30"
 hyper = { version = "=0.14.28", features = ["full"] }
 hyper-rustls = "=0.24.2"

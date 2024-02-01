@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 color-eyre = "=0.6.2"
-config = "=0.13.4"
+config = "=0.14.0"
 derive_builder = "=0.13.0"
 eventsource-client = "=0.12.2"
 eyre = "=0.6.12"

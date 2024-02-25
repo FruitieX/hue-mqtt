@@ -14,7 +14,7 @@ eyre = "=0.6.12"
 futures = "=0.3.30"
 hyper = { version = "=0.14.28", features = ["full"] }
 hyper-rustls = "=0.24.2"
-palette = { version = "=0.7.4", features = ["serializing"] }
+palette = { version = "=0.7.5", features = ["serializing"] }
 rand = "=0.8.5"
 rumqttc = "=0.23.0"
 rustls-pemfile = "=1.0.4"

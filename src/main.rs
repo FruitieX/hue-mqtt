@@ -9,6 +9,9 @@ use protocols::mqtt::mk_mqtt_client;
 #[macro_use]
 extern crate eyre;
 
+#[macro_use]
+extern crate log;
+
 use crate::settings::read_settings;
 
 mod hue;
@@ -19,6 +22,7 @@ mod settings;
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
+    pretty_env_logger::init();
 
     let settings = read_settings()?;
     let mqtt_client = mk_mqtt_client(&settings).await?;

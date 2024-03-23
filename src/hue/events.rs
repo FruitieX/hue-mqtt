@@ -4,12 +4,16 @@ use eyre::{OptionExt, Result};
 use futures::StreamExt;
 use tokio::{
     sync::{Notify, RwLock},
-    time::Instant,
+    time::{timeout, Instant},
 };
 
 use crate::{
-    mqtt::mqtt_device::{publish_mqtt_device, MqttDevice},
-    protocols::{eventsource::mk_eventsource_stream, https::HyperHttpsClient, mqtt::MqttClient},
+    mqtt::mqtt_device::{publish_mqtt_devices, MqttDevice},
+    protocols::{
+        eventsource::{mk_eventsource_stream, PinnedEventSourceStream},
+        https::HyperHttpsClient,
+        mqtt::MqttClient,
+    },
     settings::Settings,
 };
 
@@ -17,6 +21,60 @@ use super::{
     event_data::handle_incoming_hue_events, init_state::init_state_to_mqtt_devices,
     polling::poll_hue_buttons, rest::HueState,
 };
+
+async fn read_and_handle_eventsource_event(
+    settings: &Settings,
+    mqtt_client: &MqttClient,
+    prev_event_t: &Arc<RwLock<Option<Instant>>>,
+    mqtt_devices: &Arc<RwLock<HashMap<String, MqttDevice>>>,
+    notify: &Arc<Notify>,
+    eventsource_stream: &mut PinnedEventSourceStream,
+) -> Result<()> {
+    let e = eventsource_stream
+        .next()
+        .await
+        .ok_or_eyre("Error while opening eventsource stream")??;
+
+    // Ignore non-event messages
+    let eventsource_client::SSE::Event(e) = e else {
+        return Ok(());
+    };
+
+    // Check whether we should be ignoring button events
+    let ignore_buttons = {
+        let prev_event_t = prev_event_t.read().await;
+        prev_event_t
+            .map(|prev_event_t| prev_event_t.elapsed() < Duration::from_millis(1500))
+            .unwrap_or(false)
+    };
+
+    let result = handle_incoming_hue_events(mqtt_devices, e.data, ignore_buttons).await;
+
+    {
+        let mut prev_event_t = prev_event_t.write().await;
+        *prev_event_t = Some(Instant::now());
+    }
+
+    // Ignore errors in the eventsource event handling
+    let mqtt_devices = match result {
+        Ok(mqtt_devices) => mqtt_devices,
+        Err(e) => {
+            eprintln!("Error handling incoming Hue eventsource event: {e:?}");
+            return Ok(());
+        }
+    };
+
+    // Send a notification to the polling task that an event has just arrived
+    notify.notify_one();
+
+    let result = publish_mqtt_devices(mqtt_client, settings, mqtt_devices).await;
+
+    if let Err(e) = result {
+        eprintln!("Error publishing mqtt devices: {e:?}");
+    }
+
+    Ok(())
+}
 
 pub async fn eventsource_loop(
     settings: &Settings,
@@ -29,47 +87,20 @@ pub async fn eventsource_loop(
     let mut eventsource_stream = mk_eventsource_stream(settings, https_client)?;
 
     loop {
-        let e = eventsource_stream
-            .next()
-            .await
-            .ok_or_eyre("Error while opening eventsource stream")??;
+        let future = read_and_handle_eventsource_event(
+            settings,
+            mqtt_client,
+            prev_event_t,
+            mqtt_devices,
+            notify,
+            &mut eventsource_stream,
+        );
 
-        let eventsource_client::SSE::Event(e) = e else {
-            continue;
-        };
-
-        // Check whether we should be ignoring button events
-        let ignore_buttons = {
-            let prev_event_t = prev_event_t.read().await;
-            prev_event_t
-                .map(|prev_event_t| prev_event_t.elapsed() < Duration::from_millis(1500))
-                .unwrap_or(false)
-        };
-
-        let result = handle_incoming_hue_events(mqtt_devices, e.data, ignore_buttons).await;
-
-        {
-            let mut prev_event_t = prev_event_t.write().await;
-            *prev_event_t = Some(Instant::now());
-        }
-
-        // Send a notification to the polling task that an event has just arrived
-        notify.notify_one();
-
-        match result {
-            Ok(mqtt_devices) => {
-                for mqtt_device in mqtt_devices {
-                    let result = publish_mqtt_device(mqtt_client, settings, &mqtt_device).await;
-
-                    if let Err(e) = result {
-                        eprintln!("{:?}", e);
-                    }
-                }
-            }
-            Err(e) => {
-                eprintln!("{:?}", e);
-            }
-        }
+        timeout(
+            Duration::from_secs(settings.hue_bridge.eventsource_timeout_seconds),
+            future,
+        )
+        .await??
     }
 }
 
@@ -115,7 +146,10 @@ pub fn start_hue_events_loop(
                 .await;
 
                 if let Err(e) = result {
-                    eprintln!("Error encountered in eventsource loop: {:?}", e);
+                    eprintln!(
+                        "Error encountered in eventsource loop: {:?}, reconnecting",
+                        e
+                    );
                     tokio::time::sleep(Duration::from_secs(5)).await;
                 }
             }

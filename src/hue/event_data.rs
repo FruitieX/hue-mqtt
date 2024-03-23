@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use color_eyre::Result;
-use eyre::eyre;
 use serde::Deserialize;
 use tokio::sync::RwLock;
 

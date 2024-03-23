@@ -1,7 +1,6 @@
 use color_eyre::Result;
 use es::Client;
 use eventsource_client as es;
-use eyre::eyre;
 use futures::Stream;
 use std::{pin::Pin, time::Duration};
 

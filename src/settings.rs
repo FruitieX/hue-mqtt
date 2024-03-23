@@ -6,6 +6,7 @@ pub struct HueSettings {
     pub appkey: String,
     pub self_signed_cert: Option<String>,
     pub disable_host_name_verification: Option<bool>,
+    pub eventsource_timeout_seconds: u64,
 }
 
 #[derive(Clone, Deserialize, Debug)]

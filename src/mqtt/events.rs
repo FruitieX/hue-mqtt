@@ -1,5 +1,4 @@
 use color_eyre::Result;
-use eyre::eyre;
 use rumqttc::QoS;
 
 use crate::{

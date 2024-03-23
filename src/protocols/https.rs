@@ -1,5 +1,4 @@
 use color_eyre::Result;
-use eyre::eyre;
 use hyper::{Request, Uri};
 use serde::{Deserialize, Serialize};
 use tokio_rustls::rustls::{ClientConfig, RootCertStore};

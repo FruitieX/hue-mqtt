@@ -27,3 +27,6 @@ appkey = "0123456789abcdef0123456789abcdef0123456-"
 
 # Disable checks for hostname in Hue bridge certificate. You need to disable this unless the Hue bridge's hostname resolves to its IP address.
 disable_host_name_verification = true
+
+# If no events have been received on the Hue eventsource endpoint for this many seconds, the connection will be re-established
+eventsource_timeout_seconds = 180

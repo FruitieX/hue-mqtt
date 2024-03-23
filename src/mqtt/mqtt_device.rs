@@ -69,3 +69,15 @@ pub async fn publish_mqtt_device(
 
     Ok(())
 }
+
+pub async fn publish_mqtt_devices(
+    mqtt_client: &MqttClient,
+    settings: &Settings,
+    mqtt_devices: Vec<MqttDevice>,
+) -> Result<()> {
+    for mqtt_device in mqtt_devices {
+        publish_mqtt_device(mqtt_client, settings, &mqtt_device).await?;
+    }
+
+    Ok(())
+}

@@ -29,4 +29,4 @@ appkey = "0123456789abcdef0123456789abcdef0123456-"
 disable_host_name_verification = true
 
 # If no events have been received on the Hue eventsource endpoint for this many seconds, the connection will be re-established
-eventsource_timeout_seconds = 180
+eventsource_timeout_seconds = 300

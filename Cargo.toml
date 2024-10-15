@@ -12,7 +12,7 @@ derive_builder = "=0.20.0"
 eventsource-client = "=0.12.2"
 eyre = "=0.6.12"
 futures = "=0.3.30"
-hyper = { version = "=0.14.28", features = ["full"] }
+hyper = { version = "=1.5.0", features = ["full"] }
 hyper-rustls = "=0.24.2"
 palette = { version = "=0.7.5", features = ["serializing"] }
 log = "0.4.20"

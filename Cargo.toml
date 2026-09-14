@@ -11,7 +11,7 @@ config = "=0.14.0"
 derive_builder = "=0.20.2"
 eventsource-client = "=0.12.2"
 eyre = "=0.6.12"
-futures = "=0.3.30"
+futures = "=0.3.34"
 hyper = { version = "=0.14.28", features = ["full"] }
 hyper-rustls = "=0.24.2"
 palette = { version = "=0.7.5", features = ["serializing"] }

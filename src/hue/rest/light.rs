@@ -10,6 +10,7 @@ use crate::{
 use super::common::Owner;
 
 #[derive(Deserialize, Debug, Clone)]
+#[allow(dead_code)]
 pub struct LightMetadata {
     pub name: String,
     pub archetype: String,
@@ -49,6 +50,7 @@ pub struct XyData {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[allow(dead_code)]
 pub struct LightData {
     pub id: String,
     pub id_v1: String,
@@ -104,17 +106,20 @@ struct LightRequest {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[allow(dead_code)]
 pub struct PutError {
     pub description: String,
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[allow(dead_code)]
 pub struct PutResourceIdentifier {
     pub rid: String,
     pub rtype: String,
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[allow(dead_code)]
 pub struct PutResponse {
     pub errors: Vec<PutError>,
     pub data: Option<Vec<PutResourceIdentifier>>,

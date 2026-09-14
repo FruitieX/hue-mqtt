@@ -9,9 +9,6 @@ use protocols::mqtt::mk_mqtt_client;
 #[macro_use]
 extern crate eyre;
 
-#[macro_use]
-extern crate log;
-
 use crate::settings::read_settings;
 
 mod hue;

@@ -7,12 +7,14 @@ use crate::{
 };
 
 #[derive(Deserialize, Debug, Clone)]
+#[allow(dead_code)]
 pub struct DeviceService {
     pub rid: String,
     pub rtype: String,
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[allow(dead_code)]
 pub struct DeviceProductData {
     pub model_id: String,
     pub manufacturer_name: String,
@@ -20,12 +22,14 @@ pub struct DeviceProductData {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[allow(dead_code)]
 pub struct DeviceMetadata {
     pub name: String,
     pub archetype: String,
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[allow(dead_code)]
 pub struct DeviceData {
     pub id: String,
     pub id_v1: Option<String>,

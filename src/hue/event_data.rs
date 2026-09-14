@@ -60,9 +60,6 @@ struct LightLevelUpdateData {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-struct DevicePowerData {}
-
-#[derive(Deserialize, Debug, Clone)]
 #[serde(tag = "type", rename_all = "snake_case")]
 enum UpdateData {
     Button(ButtonUpdateData),
@@ -265,10 +262,7 @@ pub async fn handle_incoming_hue_events(
                     .collect()
             };
 
-            let updates = light_updates
-                .into_values()
-                .chain(sensor_updates.into_iter())
-                .collect();
+            let updates = light_updates.into_values().chain(sensor_updates).collect();
 
             Ok(updates)
         }

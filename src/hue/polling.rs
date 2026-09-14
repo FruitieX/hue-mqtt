@@ -21,12 +21,12 @@ use tokio::sync::RwLock;
 /// Another perhaps better idea for solving this problem would be:
 ///
 /// - Every time we request a light state change for a specific device, keep
-/// listening for events from the eventsource api
+///   listening for events from the eventsource api
 /// - If an "acknowledgement" of the state change arrives from the device, we
-/// know that the bulb has been set to the correct state and we don't need to do
-/// anything else
+///   know that the bulb has been set to the correct state and we don't need to do
+///   anything else
 /// - If no event is received within say 2 seconds, re-send the state change
-/// request
+///   request
 pub fn start_hue_state_poll_loop(
     settings: &Settings,
     https_client: &HyperHttpsClient,
@@ -104,23 +104,23 @@ pub async fn poll_hue_buttons(
                         mqtt_device.sensor_value = Some(false.to_string());
                         result.push(mqtt_device.clone());
                     }
-                    (Some("false"), false, Some(updated)) => {
+                    (Some("false"), false, Some(updated))
+                        if updated != &button.button_report.updated =>
+                    {
                         // We seem to have missed a false -> true -> false transition, let's fake a sensor_value of "true"
-                        if updated != &button.button_report.updated {
-                            mqtt_device.sensor_value = Some(true.to_string());
-                            result.push(mqtt_device.clone());
-                            mqtt_device.sensor_value = Some(false.to_string());
-                            result.push(mqtt_device.clone());
-                        }
+                        mqtt_device.sensor_value = Some(true.to_string());
+                        result.push(mqtt_device.clone());
+                        mqtt_device.sensor_value = Some(false.to_string());
+                        result.push(mqtt_device.clone());
                     }
-                    (Some("true"), true, Some(updated)) => {
+                    (Some("true"), true, Some(updated))
+                        if updated != &button.button_report.updated =>
+                    {
                         // We seem to have missed a true -> false -> true transition, let's fake a sensor_value of "false"
-                        if updated != &button.button_report.updated {
-                            mqtt_device.sensor_value = Some(false.to_string());
-                            result.push(mqtt_device.clone());
-                            mqtt_device.sensor_value = Some(true.to_string());
-                            result.push(mqtt_device.clone());
-                        }
+                        mqtt_device.sensor_value = Some(false.to_string());
+                        result.push(mqtt_device.clone());
+                        mqtt_device.sensor_value = Some(true.to_string());
+                        result.push(mqtt_device.clone());
                     }
 
                     _ => {}

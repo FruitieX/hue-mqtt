@@ -14,6 +14,7 @@ pub struct MotionEventData {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[allow(dead_code)]
 pub struct MotionData {
     pub id: String,
     pub id_v1: String,

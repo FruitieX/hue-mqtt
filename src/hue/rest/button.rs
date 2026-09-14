@@ -51,6 +51,7 @@ impl ButtonEventData {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[allow(dead_code)]
 pub struct ButtonData {
     pub id: String,
     pub id_v1: String,

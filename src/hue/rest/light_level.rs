@@ -14,6 +14,7 @@ pub struct LightLevelEventData {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[allow(dead_code)]
 pub struct LightLevelData {
     pub id: String,
     pub id_v1: String,

@@ -17,7 +17,7 @@ hyper-rustls = "=0.24.2"
 palette = { version = "=0.7.7", features = ["serializing"] }
 log = "=0.4.34"
 pretty_env_logger = "=0.5.0"
-rand = "=0.8.5"
+rand = "=0.10.2"
 rumqttc = "=0.24.0"
 rustls-pemfile = "=1.0.4"
 serde = { version = "=1.0.229", features = ["derive"] }

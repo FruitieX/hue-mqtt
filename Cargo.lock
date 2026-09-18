@@ -690,7 +690,7 @@ dependencies = [
  "pretty_env_logger",
  "rand",
  "rumqttc",
- "rustls-pemfile 1.0.4",
+ "rustls-pemfile 2.2.0",
  "serde",
  "serde_json",
  "serde_path_to_error",
